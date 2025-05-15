@@ -1,0 +1,17 @@
+[build]
+  command = "npm install"
+  functions = "functions"
+  publish = "public"
+
+[functions]
+  directory = "functions"
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[build.environment]
+  NODE_VERSION = "18"
+  NPM_VERSION = "9" 

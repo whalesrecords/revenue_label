@@ -8,8 +8,13 @@ const path = require('path');
 const { Transform } = require('stream');
 
 const app = express();
+const PORT = process.env.PORT || 5001;
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+const UPLOAD_DIR = path.join(__dirname, 'uploads');
+const TEMPLATES_DIR = path.join(__dirname, 'templates');
+
 const upload = multer({ 
-  dest: 'uploads/',
+  dest: UPLOAD_DIR,
   limits: {
     fileSize: 100 * 1024 * 1024 // Limit to 100MB
   }
@@ -17,7 +22,7 @@ const upload = multer({
 
 // Configuration CORS détaillée
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: CLIENT_URL,
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Accept', 'Origin'],
   credentials: true
@@ -26,7 +31,7 @@ app.use(cors({
 app.use(express.json());
 
 // Ensure uploads and templates directories exist
-['uploads', 'templates'].forEach(dir => {
+[UPLOAD_DIR, TEMPLATES_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -37,7 +42,7 @@ let templates = {};
 let analysisHistory = [];
 
 // Load templates if they exist
-const templatesFile = path.join('templates', 'templates.json');
+const templatesFile = path.join(TEMPLATES_DIR, 'templates.json');
 console.log('Looking for templates file at:', templatesFile);
 
 if (fs.existsSync(templatesFile)) {
@@ -713,7 +718,9 @@ app.post('/api/read-headers', upload.single('file'), (req, res) => {
     });
 });
 
-const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Client URL: ${CLIENT_URL}`);
+  console.log(`Upload directory: ${UPLOAD_DIR}`);
+  console.log(`Templates directory: ${TEMPLATES_DIR}`);
 }); 
