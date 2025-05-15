@@ -29,14 +29,7 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/server/:splat"
-  status = 200
-  force = true
-  headers = {Access-Control-Allow-Origin = "*"}
-
-[[redirects]]
-  from = "/.netlify/functions/server/*"
-  to = "/.netlify/functions/server/:splat"
+  to = "/api/:splat"
   status = 200
   force = true
   headers = {Access-Control-Allow-Origin = "*"}
