@@ -13,7 +13,8 @@ const config = {
   },
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json'
+    'Accept': 'application/json',
+    'Cache-Control': 'no-cache'
   }
 };
 

@@ -317,13 +317,21 @@ router.get('/templates', async (req, res) => {
     console.log('Request URL:', req.url);
     console.log('Request path:', req.path);
     console.log('Request headers:', req.headers);
+    console.log('Current templates:', templates);
 
-    // Set proper headers
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    // Set proper headers before any response
+    res.set({
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Accept',
+      'Cache-Control': 'no-cache'
+    });
+
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
 
     // Ensure templates is properly initialized
     if (!templates || typeof templates !== 'object') {
@@ -351,6 +359,7 @@ router.get('/templates', async (req, res) => {
     return res.json(templateArray);
   } catch (error) {
     console.error('Error in /templates route:', error);
+    // Ensure error response is also JSON
     return res.status(500).json({
       error: 'Failed to get templates',
       message: error.message,
