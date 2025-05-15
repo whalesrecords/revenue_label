@@ -7,10 +7,11 @@
     "server"
   ],
   "scripts": {
-    "install:all": "cd client && npm install --no-package-lock && cd ../server && npm install --no-package-lock",
+    "install:client": "cd client && npm install",
+    "install:server": "cd server && npm install",
     "build:client": "cd client && npm run build",
-    "build:server": "cd server && npm install --no-package-lock",
-    "build": "npm run install:all && npm run build:client && npm run build:server"
+    "build:server": "cd server && npm install",
+    "build": "npm run install:client && npm run install:server && npm run build:client && npm run build:server"
   },
   "dependencies": {
     "@netlify/functions": "^3.1.8"
