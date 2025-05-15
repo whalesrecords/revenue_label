@@ -1,7 +1,7 @@
 [build]
   base = "."
-  command = "npm install && npm run build"
-  publish = "build"
+  command = "cd client && npm install && npm run build"
+  publish = "client/build"
   functions = "server/functions"
 
 [functions]
@@ -34,4 +34,5 @@
 [build.environment]
   NODE_VERSION = "18"
   NPM_VERSION = "9"
-  CI = "false" 
+  CI = "false"
+  GENERATE_SOURCEMAP = "false" 
