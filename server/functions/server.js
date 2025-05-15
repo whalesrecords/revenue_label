@@ -82,6 +82,27 @@ const uploadMiddleware = (req, res, next) => {
   });
 };
 
+// Request validation middleware
+const validateRequest = (req, res, next) => {
+  console.log(`${req.method} ${req.path} called`);
+  console.log('Headers:', req.headers);
+  console.log('Query:', req.query);
+  console.log('Body:', req.body);
+  
+  // Validate Content-Type for POST requests
+  if (req.method === 'POST' && !req.is('application/json') && !req.is('multipart/form-data')) {
+    return res.status(400).json({
+      error: 'Invalid Content-Type',
+      message: 'Content-Type must be application/json or multipart/form-data'
+    });
+  }
+
+  next();
+};
+
+// Apply validation middleware to all routes
+router.use(validateRequest);
+
 // Base path for all routes
 app.use('/.netlify/functions/server', router);
 
@@ -298,67 +319,58 @@ router.get('/templates', (req, res) => {
   try {
     console.log('GET /templates called');
     console.log('Available templates:', Object.keys(templates));
-    res.setHeader('Content-Type', 'application/json');
     res.json(Object.entries(templates).map(([name, template]) => ({
       name,
       ...template
     })));
   } catch (error) {
     console.error('Error getting templates:', error);
-    res.status(500).json({ 
-      status: 'error', 
+    res.status(500).json({
       error: 'Failed to get templates',
-      details: error.message 
+      message: error.message
     });
   }
 });
 
 router.post('/templates', express.json(), (req, res) => {
   try {
-    const template = req.body;
-    console.log('Received template:', template);
+    console.log('POST /templates called with body:', req.body);
+    const { name, ...templateData } = req.body;
     
-    if (!template || !template.name) {
-      return res.status(400).json({ 
-        status: 'error',
-        error: 'Template name is required'
+    if (!name) {
+      return res.status(400).json({
+        error: 'Invalid template',
+        message: 'Template name is required'
       });
     }
 
-    const requiredFields = ['name', 'track_column', 'artist_column', 'upc_column', 'revenue_column', 'date_column', 'currency'];
-    const missingFields = requiredFields.filter(field => !template[field]);
+    // Validate required fields
+    const requiredFields = ['track_column', 'artist_column', 'revenue_column', 'date_column'];
+    const missingFields = requiredFields.filter(field => !templateData[field]);
     
     if (missingFields.length > 0) {
-      return res.status(400).json({ 
-        status: 'error',
-        error: 'Invalid template format', 
-        missingFields 
+      return res.status(400).json({
+        error: 'Invalid template',
+        message: `Missing required fields: ${missingFields.join(', ')}`
       });
     }
 
-    templates[template.name] = {
-      track_column: template.track_column,
-      artist_column: template.artist_column,
-      upc_column: template.upc_column,
-      revenue_column: template.revenue_column,
-      date_column: template.date_column,
-      currency: template.currency,
-      source: template.name
+    // Add the template
+    templates[name] = {
+      ...templateData,
+      currency: templateData.currency || 'EUR'
     };
 
-    // Save templates to file
+    // Save to file
     saveTemplatesToFile();
 
-    res.json({ 
-      status: 'success', 
-      data: templates[template.name] 
-    });
+    console.log('Template saved:', name);
+    res.json({ name, ...templates[name] });
   } catch (error) {
     console.error('Error saving template:', error);
-    res.status(500).json({ 
-      status: 'error', 
+    res.status(500).json({
       error: 'Failed to save template',
-      details: error.message 
+      message: error.message
     });
   }
 });
@@ -564,6 +576,16 @@ router.post('/analyze', uploadMiddleware, async (req, res) => {
       details: error.message
     });
   }
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Global error handler:', err);
+  res.status(err.status || 500).json({
+    error: err.name || 'Server Error',
+    message: err.message || 'An unexpected error occurred',
+    ...(process.env.NODE_ENV === 'development' ? { stack: err.stack } : {})
+  });
 });
 
 // Export the serverless function
