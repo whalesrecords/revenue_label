@@ -37,21 +37,38 @@ function TemplateDialog({ open, onClose, onSave }) {
     formData.append('file', file);
 
     try {
+      console.log('Uploading file to:', `${config.API_URL}/read-headers`);
       const response = await fetch(`${config.API_URL}/read-headers`, {
         method: 'POST',
         body: formData,
+        headers: {
+          'Accept': 'application/json',
+        },
+        mode: 'cors',
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+
       if (!response.ok) {
-        throw new Error('Failed to read CSV headers');
+        const errorData = await response.text();
+        console.error('Server error response:', errorData);
+        throw new Error(`Server error: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log('Received headers:', data);
+      
+      if (!data.headers || !Array.isArray(data.headers)) {
+        throw new Error('Invalid headers format received');
+      }
+
       setAvailableHeaders(data.headers);
       setError(null);
     } catch (err) {
-      setError('Error reading CSV headers: ' + err.message);
-      console.error('Error reading headers:', err);
+      console.error('Detailed error:', err);
+      setError(`Error reading CSV headers: ${err.message}`);
+      setAvailableHeaders([]);
     }
   };
 
