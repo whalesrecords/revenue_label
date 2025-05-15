@@ -7,7 +7,10 @@
     "server"
   ],
   "scripts": {
-    "build": "cd client && npm install && npm run build && cd ../server && npm install"
+    "postinstall": "cd client && npm install && cd ../server && npm install",
+    "build:client": "cd client && npm run build",
+    "build:server": "cd server && npm install",
+    "build": "npm run build:client && npm run build:server"
   },
   "dependencies": {
     "@netlify/functions": "^3.1.8"
