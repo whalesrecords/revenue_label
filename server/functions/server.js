@@ -19,6 +19,10 @@ app.use(cors({
   maxAge: 86400
 }));
 
+// Base path for all routes
+const router = express.Router();
+app.use('/.netlify/functions/server', router);
+
 // Middleware pour gérer les options CORS
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -141,12 +145,12 @@ const cleanRevenueValue = (value) => {
 };
 
 // Routes
-app.get('/', (req, res) => {
+router.get('/', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.json({ status: 'success', message: 'API is working' });
 });
 
-app.get('/templates', (req, res) => {
+router.get('/templates', (req, res) => {
   console.log('GET /templates called');
   console.log('Available templates:', Object.keys(templates));
   res.setHeader('Content-Type', 'application/json');
@@ -157,7 +161,7 @@ app.get('/templates', (req, res) => {
   res.json({ status: 'success', data: templatesList });
 });
 
-app.post('/templates', express.json(), (req, res) => {
+router.post('/templates', express.json(), (req, res) => {
   try {
     const template = req.body;
     console.log('Received template:', template);
@@ -192,7 +196,7 @@ app.post('/templates', express.json(), (req, res) => {
   }
 });
 
-app.post('/read-headers', upload.single('file'), (req, res) => {
+router.post('/read-headers', upload.single('file'), (req, res) => {
   console.log('POST /read-headers called');
   if (!req.file) {
     console.log('No file uploaded');
@@ -224,7 +228,7 @@ app.post('/read-headers', upload.single('file'), (req, res) => {
   }
 });
 
-app.post('/analyze', upload.single('file'), async (req, res) => {
+router.post('/analyze', upload.single('file'), async (req, res) => {
   console.log('POST /analyze called');
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
@@ -258,27 +262,5 @@ app.post('/analyze', upload.single('file'), async (req, res) => {
   }
 });
 
-// Export the serverless handler
-const handler = serverless(app);
-
-// Export handler function
-exports.handler = async (event, context) => {
-  // Log incoming request
-  console.log('Request:', {
-    path: event.path,
-    httpMethod: event.httpMethod,
-    headers: event.headers,
-    body: event.body
-  });
-
-  // Handle the request
-  const result = await handler(event, context);
-
-  // Log response
-  console.log('Response:', {
-    statusCode: result.statusCode,
-    headers: result.headers
-  });
-
-  return result;
-}; 
+// Export the serverless function
+module.exports.handler = serverless(app); 
