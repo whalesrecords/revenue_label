@@ -142,17 +142,19 @@ const cleanRevenueValue = (value) => {
 
 // Routes
 app.get('/', (req, res) => {
-  res.json({ message: 'API is working' });
+  res.setHeader('Content-Type', 'application/json');
+  res.json({ status: 'success', message: 'API is working' });
 });
 
 app.get('/templates', (req, res) => {
   console.log('GET /templates called');
   console.log('Available templates:', Object.keys(templates));
+  res.setHeader('Content-Type', 'application/json');
   const templatesList = Object.entries(templates).map(([name, template]) => ({
     name,
     ...template
   }));
-  res.json(templatesList);
+  res.json({ status: 'success', data: templatesList });
 });
 
 app.post('/templates', express.json(), (req, res) => {
@@ -163,7 +165,9 @@ app.post('/templates', express.json(), (req, res) => {
     const missingFields = requiredFields.filter(field => !template[field]);
     
     if (missingFields.length > 0) {
+      res.setHeader('Content-Type', 'application/json');
       return res.status(400).json({ 
+        status: 'error',
         error: 'Invalid template format', 
         missingFields 
       });
@@ -179,10 +183,12 @@ app.post('/templates', express.json(), (req, res) => {
       source: template.name
     };
 
-    res.json(templates[template.name]);
+    res.setHeader('Content-Type', 'application/json');
+    res.json({ status: 'success', data: templates[template.name] });
   } catch (error) {
     console.error('Error saving template:', error);
-    res.status(500).json({ error: 'Failed to save template' });
+    res.setHeader('Content-Type', 'application/json');
+    res.status(500).json({ status: 'error', error: 'Failed to save template' });
   }
 });
 
@@ -190,7 +196,8 @@ app.post('/read-headers', upload.single('file'), (req, res) => {
   console.log('POST /read-headers called');
   if (!req.file) {
     console.log('No file uploaded');
-    return res.status(400).json({ error: 'No file uploaded' });
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(400).json({ status: 'error', error: 'No file uploaded' });
   }
 
   try {
@@ -202,15 +209,18 @@ app.post('/read-headers', upload.single('file'), (req, res) => {
     }, (err, records) => {
       if (err) {
         console.error('Error reading CSV headers:', err);
-        return res.status(500).json({ error: 'Failed to read CSV headers' });
+        res.setHeader('Content-Type', 'application/json');
+        return res.status(500).json({ status: 'error', error: 'Failed to read CSV headers' });
       }
       const headers = records[0] || [];
       console.log('Headers found:', headers);
-      res.json({ headers });
+      res.setHeader('Content-Type', 'application/json');
+      res.json({ status: 'success', data: { headers } });
     });
   } catch (error) {
     console.error('Error reading file:', error);
-    res.status(500).json({ error: 'Failed to read file' });
+    res.setHeader('Content-Type', 'application/json');
+    res.status(500).json({ status: 'error', error: 'Failed to read file' });
   }
 });
 

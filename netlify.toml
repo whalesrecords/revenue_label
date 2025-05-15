@@ -2,6 +2,23 @@
   base = "client"
   command = "npm ci && npm run build"
   publish = "build"
+  functions = "server/functions"
+
+[functions]
+  directory = "server/functions"
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/.netlify/functions/server/*"
+  to = "/.netlify/functions/server/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/server/:splat"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/*"
@@ -12,7 +29,4 @@
 [build.environment]
   NODE_VERSION = "18"
   NPM_VERSION = "9"
-  CI = "false"
-
-[functions]
-  directory = "server/functions" 
+  CI = "false" 

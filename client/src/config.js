@@ -1,5 +1,5 @@
 const config = {
-  API_URL: process.env.REACT_APP_API_URL || 'https://app-label-wr.netlify.app/.netlify/functions/server'
+  API_URL: process.env.REACT_APP_API_URL || '/api'
 };
 
 console.log('API Configuration:', config);
