@@ -31,8 +31,82 @@ app.use(cors({
 app.use(express.json());
 app.use('/.netlify/functions/server', router);
 
-// Store templates in memory
-let templates = {};
+// Predefined templates
+const predefinedTemplates = {
+  "Tunecore": {
+    "track_column": "Song Title",
+    "artist_column": "Artist",
+    "upc_column": "UPC",
+    "revenue_column": "Total Earned",
+    "date_column": "Sales Period",
+    "source": "Tunecore",
+    "currency": "EUR"
+  },
+  "BELIEVE UK": {
+    "track_column": "Track title",
+    "upc_column": "UPC",
+    "revenue_column": "Net Income",
+    "date_column": "Reporting Date",
+    "source": "BELIEVE UK",
+    "currency": "EUR"
+  },
+  "BELIEVE": {
+    "track_column": "Track title",
+    "upc_column": "UPC",
+    "revenue_column": "Net Income",
+    "date_column": "Operation Date",
+    "source": "BELIEVE",
+    "currency": "EUR"
+  },
+  "Tunecore +": {
+    "track_column": "Song Title",
+    "artist_column": "Artist",
+    "upc_column": "UPC",
+    "revenue_column": "Total Earned",
+    "date_column": "Posted Date",
+    "source": "Tunecore",
+    "currency": "EUR"
+  },
+  "TuneCore Real": {
+    "track_column": "Song Title",
+    "artist_column": "Artist",
+    "upc_column": "UPC",
+    "revenue_column": "Total Earned",
+    "date_column": "Sales Period",
+    "source": "Tunecore",
+    "currency": "EUR"
+  },
+  "DashGo": {
+    "track_column": "Track Title",
+    "artist_column": "Artist Name",
+    "upc_column": "UPC",
+    "revenue_column": "Payable",
+    "date_column": "Transaction Date",
+    "currency": "USD",
+    "source": "DashGo"
+  },
+  "DG": {
+    "track_column": "Track Title",
+    "artist_column": "Artist Name",
+    "upc_column": "UPC",
+    "revenue_column": "Payable",
+    "date_column": "Transaction Date",
+    "currency": "USD",
+    "source": "DG"
+  },
+  "DD": {
+    "track_column": "Track Title",
+    "artist_column": "Artist Name",
+    "upc_column": "UPC",
+    "revenue_column": "Payable",
+    "date_column": "Transaction Date",
+    "currency": "USD",
+    "source": "DD"
+  }
+};
+
+// Initialize templates with predefined ones
+let templates = { ...predefinedTemplates };
 
 // Helper functions
 const cleanRevenueValue = (value) => {
