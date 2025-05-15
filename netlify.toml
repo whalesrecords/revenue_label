@@ -1,13 +1,17 @@
 [build]
   base = "."
-  command = "cd client && npm ci && npm run build"
-  publish = "client/build"
+  command = "npm install && npm run build"
+  publish = "build"
   functions = "server/functions"
 
 [functions]
   directory = "server/functions"
   node_bundler = "esbuild"
   included_files = ["server/functions/package.json"]
+  external_node_modules = ["express", "serverless-http", "multer", "cors", "csv-parse", "csv-stringify"]
+
+[[plugins]]
+  package = "@netlify/plugin-functions-install-core"
 
 [[redirects]]
   from = "/api/*"
