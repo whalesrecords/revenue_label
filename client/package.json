@@ -25,9 +25,6 @@
     "tailwindcss": "^3.4.1",
     "web-vitals": "^2.1.4"
   },
-  "devDependencies": {
-    "@netlify/plugin-functions-core": "^1.0.0"
-  },
   "scripts": {
     "start": "react-scripts start",
     "build": "GENERATE_SOURCEMAP=false react-scripts build",
