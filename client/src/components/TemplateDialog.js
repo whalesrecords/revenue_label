@@ -19,6 +19,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { useDropzone } from 'react-dropzone';
+import config from '../config';
 
 function TemplateDialog({ open, onClose, onSave }) {
   const [name, setName] = useState('');
@@ -36,7 +37,7 @@ function TemplateDialog({ open, onClose, onSave }) {
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://localhost:5001/api/read-headers', {
+      const response = await fetch(`${config.API_URL}/read-headers`, {
         method: 'POST',
         body: formData,
       });
