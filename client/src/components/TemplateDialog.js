@@ -94,27 +94,50 @@ function TemplateDialog({ open, onClose, onSave }) {
     setMappings(newMappings);
   };
 
-  const handleSave = () => {
-    // Convert mappings to the required format
-    const template = {
-      name,
-      track_column: '',
-      artist_column: '',
-      upc_column: '',
-      revenue_column: '',
-      date_column: '',
-      currency: 'EUR'  // Default currency
-    };
+  const handleSave = async () => {
+    try {
+      // Convert mappings to the required format
+      const template = {
+        name,
+        track_column: '',
+        artist_column: '',
+        upc_column: '',
+        revenue_column: '',
+        date_column: '',
+        currency: 'EUR'  // Default currency
+      };
 
-    // Fill in the mapped fields
-    mappings.forEach(({ source, target }) => {
-      if (source && target) {
-        template[target] = source;
+      // Fill in the mapped fields
+      mappings.forEach(({ source, target }) => {
+        if (source && target) {
+          template[`${target}`] = source;
+        }
+      });
+
+      // Send the template to the server
+      const response = await fetch(`${config.API_URL}/templates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(template)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to save template: ${response.statusText}`);
       }
-    });
 
-    onSave(template);
-    handleReset();
+      const savedTemplate = await response.json();
+      console.log('Template saved:', savedTemplate);
+
+      onSave(savedTemplate);
+      handleReset();
+      onClose();
+    } catch (error) {
+      console.error('Error saving template:', error);
+      setError(`Failed to save template: ${error.message}`);
+    }
   };
 
   const handleReset = () => {

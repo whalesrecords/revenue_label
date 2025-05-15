@@ -154,11 +154,10 @@ router.get('/templates', (req, res) => {
   console.log('GET /templates called');
   console.log('Available templates:', Object.keys(templates));
   res.setHeader('Content-Type', 'application/json');
-  const templatesList = Object.entries(templates).map(([name, template]) => ({
+  res.json(Object.entries(templates).map(([name, template]) => ({
     name,
     ...template
-  }));
-  res.json({ status: 'success', data: templatesList });
+  })));
 });
 
 router.post('/templates', express.json(), (req, res) => {
