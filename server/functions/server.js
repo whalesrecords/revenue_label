@@ -31,7 +31,7 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 5 * 1024 * 1024, // 5MB limit
     files: 5 // Maximum 5 files at once
   }
 });
@@ -142,7 +142,6 @@ const parseCSVContent = async (fileContent, fileName) => {
   return new Promise((resolve, reject) => {
     const records = [];
     let headersParsed = false;
-    let headers = [];
 
     parse(fileContent, {
       columns: true,
@@ -150,36 +149,22 @@ const parseCSVContent = async (fileContent, fileName) => {
       trim: true,
       relaxColumnCount: true,
       relaxQuotes: true,
-      skipEmptyLines: true,
-      onRecord: (record, { lines }) => {
-        if (!headersParsed) {
-          headers = Object.keys(record);
-          headersParsed = true;
-          console.log(`Headers found in ${fileName}:`, headers);
-        }
-        return record;
-      }
+      skipEmptyLines: true
     })
     .on('data', (record) => {
       try {
         // Vérifier si l'enregistrement est valide
-        const hasValidData = Object.entries(record).some(([key, value]) => 
-          value !== null && value !== undefined && value.toString().trim() !== ''
-        );
-
-        if (hasValidData) {
+        if (Object.keys(record).length > 0) {
           records.push(record);
         }
       } catch (err) {
-        console.warn(`Warning: Skipping invalid record in ${fileName}:`, err.message);
+        console.warn(`Warning: Invalid record in ${fileName}`);
       }
     })
     .on('error', (err) => {
-      console.error(`Error parsing ${fileName}:`, err);
       reject(new Error(`Failed to parse ${fileName}: ${err.message}`));
     })
     .on('end', () => {
-      console.log(`Successfully parsed ${records.length} records from ${fileName}`);
       resolve(records);
     });
   });
@@ -188,8 +173,9 @@ const parseCSVContent = async (fileContent, fileName) => {
 // Helper function to safely extract field value
 const extractField = (record, fieldNames, defaultValue = '') => {
   for (const name of fieldNames) {
-    if (record[name] && record[name].toString().trim() !== '') {
-      return record[name].toString().trim();
+    const value = record[name];
+    if (value && String(value).trim()) {
+      return String(value).trim();
     }
   }
   return defaultValue;
@@ -280,60 +266,64 @@ router.post('/read-headers', upload.single('file'), (req, res) => {
 
 router.post('/analyze', upload.array('files'), async (req, res) => {
   console.log('POST /analyze called');
-  const startTime = Date.now();
   
   try {
+    // Vérifier les fichiers
     if (!req.files?.length) {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    console.log(`Processing ${req.files.length} files:`, req.files.map(f => f.originalname));
+    // Traiter chaque fichier
     const allRecords = [];
     const errors = [];
     
-    // Process each file
     for (const file of req.files) {
       try {
-        console.log(`Processing ${file.originalname} (${file.size} bytes)`);
         const fileContent = file.buffer.toString();
-        const fileRecords = await parseCSVContent(fileContent, file.originalname);
-        allRecords.push(...fileRecords);
+        if (!fileContent.trim()) {
+          errors.push({ file: file.originalname, error: 'File is empty' });
+          continue;
+        }
+
+        const records = await parseCSVContent(fileContent, file.originalname);
+        if (records.length > 0) {
+          allRecords.push(...records);
+        } else {
+          errors.push({ file: file.originalname, error: 'No valid records found in file' });
+        }
       } catch (err) {
-        console.error(`Error processing ${file.originalname}:`, err);
         errors.push({ file: file.originalname, error: err.message });
       }
     }
 
     if (allRecords.length === 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'No valid records found',
-        details: errors.length ? errors : 'Files contained no valid data'
+        details: errors
       });
     }
 
-    // Initialize data structures
-    const trackData = new Map();
-    const artistData = new Map();
-    const periodData = new Map();
+    // Initialiser les structures de données
+    const tracks = new Map();
+    const artists = new Map();
+    const periods = new Map();
 
-    // Process records
-    allRecords.forEach((record, index) => {
+    // Traiter les enregistrements
+    for (const record of allRecords) {
       try {
-        const trackName = extractField(record, ['track_name', 'title', 'Track Title', 'Song Title']);
+        // Extraire les données
+        const track = extractField(record, ['track_name', 'title', 'Track Title', 'Song Title']);
         const artist = extractField(record, ['artist', 'Artist', 'Artist Name']);
-        const revenue = cleanRevenueValue(extractField(record, ['revenue', 'Payable', 'Total Earned', 'Net Income'], '0'));
         const period = extractField(record, ['period', 'Sales Period', 'Transaction Date', 'Reporting Date', 'Operation Date']);
-        const source = extractField(record, ['source', 'Source', 'Platform'], 'Unknown');
+        const revenue = cleanRevenueValue(extractField(record, ['revenue', 'Payable', 'Total Earned', 'Net Income'], '0'));
 
-        if (!trackName || !artist || !period) {
-          console.warn(`Warning: Skipping record ${index + 1} due to missing required fields`);
-          return;
-        }
+        if (!track || !artist || !period) continue;
 
-        // Update track data
-        if (!trackData.has(trackName)) {
-          trackData.set(trackName, {
-            Track: trackName,
+        // Mettre à jour les pistes
+        const trackKey = `${track}-${artist}`;
+        if (!tracks.has(trackKey)) {
+          tracks.set(trackKey, {
+            Track: track,
             Artist: artist,
             TotalRevenue: 0,
             ArtistRevenue: 0,
@@ -341,15 +331,14 @@ router.post('/analyze', upload.array('files'), async (req, res) => {
             Sources: new Set()
           });
         }
-        const track = trackData.get(trackName);
-        track.TotalRevenue += revenue;
-        track.ArtistRevenue += revenue * 0.7;
-        track.Periods.add(period);
-        track.Sources.add(source);
+        const trackData = tracks.get(trackKey);
+        trackData.TotalRevenue += revenue;
+        trackData.ArtistRevenue += revenue * 0.7;
+        trackData.Periods.add(period);
 
-        // Update artist data
-        if (!artistData.has(artist)) {
-          artistData.set(artist, {
+        // Mettre à jour les artistes
+        if (!artists.has(artist)) {
+          artists.set(artist, {
             Artist: artist,
             TotalRevenue: 0,
             ArtistRevenue: 0,
@@ -357,15 +346,15 @@ router.post('/analyze', upload.array('files'), async (req, res) => {
             Periods: new Set()
           });
         }
-        const artistRecord = artistData.get(artist);
-        artistRecord.TotalRevenue += revenue;
-        artistRecord.ArtistRevenue += revenue * 0.7;
-        artistRecord.TrackCount.add(trackName);
-        artistRecord.Periods.add(period);
+        const artistData = artists.get(artist);
+        artistData.TotalRevenue += revenue;
+        artistData.ArtistRevenue += revenue * 0.7;
+        artistData.TrackCount.add(track);
+        artistData.Periods.add(period);
 
-        // Update period data
-        if (!periodData.has(period)) {
-          periodData.set(period, {
+        // Mettre à jour les périodes
+        if (!periods.has(period)) {
+          periods.set(period, {
             Period: period,
             TotalRevenue: 0,
             ArtistRevenue: 0,
@@ -373,73 +362,55 @@ router.post('/analyze', upload.array('files'), async (req, res) => {
             ArtistCount: new Set()
           });
         }
-        const periodRecord = periodData.get(period);
-        periodRecord.TotalRevenue += revenue;
-        periodRecord.ArtistRevenue += revenue * 0.7;
-        periodRecord.TrackCount.add(trackName);
-        periodRecord.ArtistCount.add(artist);
+        const periodData = periods.get(period);
+        periodData.TotalRevenue += revenue;
+        periodData.ArtistRevenue += revenue * 0.7;
+        periodData.TrackCount.add(track);
+        periodData.ArtistCount.add(artist);
       } catch (err) {
-        console.error(`Error processing record ${index + 1}:`, err);
+        console.warn('Error processing record:', err.message);
       }
-    });
+    }
 
-    // Convert to arrays and format
-    const trackSummary = Array.from(trackData.values()).map(data => ({
-      Track: data.Track,
-      Artist: data.Artist,
-      TotalRevenue: `${data.TotalRevenue.toFixed(2)} EUR`,
-      ArtistRevenue: `${data.ArtistRevenue.toFixed(2)} EUR`,
-      Periods: Array.from(data.Periods).sort().join(', '),
-      Sources: Array.from(data.Sources).sort().join(', ')
-    }));
-
-    const artistSummary = Array.from(artistData.values()).map(data => ({
-      Artist: data.Artist,
-      TrackCount: data.TrackCount.size,
-      TotalRevenue: `${data.TotalRevenue.toFixed(2)} EUR`,
-      ArtistRevenue: `${data.ArtistRevenue.toFixed(2)} EUR`,
-      Periods: Array.from(data.Periods).sort().join(', ')
-    }));
-
-    const periodSummary = Array.from(periodData.values()).map(data => ({
-      Period: data.Period,
-      TrackCount: data.TrackCount.size,
-      ArtistCount: data.ArtistCount.size,
-      TotalRevenue: `${data.TotalRevenue.toFixed(2)} EUR`,
-      ArtistRevenue: `${data.ArtistRevenue.toFixed(2)} EUR`
-    }));
-
-    // Sort results
-    trackSummary.sort((a, b) => parseFloat(b.TotalRevenue) - parseFloat(a.TotalRevenue));
-    artistSummary.sort((a, b) => parseFloat(b.TotalRevenue) - parseFloat(a.TotalRevenue));
-    periodSummary.sort((a, b) => a.Period.localeCompare(b.Period));
-
+    // Préparer les résultats
     const results = {
-      trackSummary,
-      artistSummary,
-      periodSummary,
+      trackSummary: Array.from(tracks.values()).map(data => ({
+        Track: data.Track,
+        Artist: data.Artist,
+        TotalRevenue: `${data.TotalRevenue.toFixed(2)} EUR`,
+        ArtistRevenue: `${data.ArtistRevenue.toFixed(2)} EUR`,
+        Periods: Array.from(data.Periods).sort().join(', ')
+      })),
+      artistSummary: Array.from(artists.values()).map(data => ({
+        Artist: data.Artist,
+        TrackCount: data.TrackCount.size,
+        TotalRevenue: `${data.TotalRevenue.toFixed(2)} EUR`,
+        ArtistRevenue: `${data.ArtistRevenue.toFixed(2)} EUR`,
+        Periods: Array.from(data.Periods).sort().join(', ')
+      })),
+      periodSummary: Array.from(periods.values()).map(data => ({
+        Period: data.Period,
+        TrackCount: data.TrackCount.size,
+        ArtistCount: data.ArtistCount.size,
+        TotalRevenue: `${data.TotalRevenue.toFixed(2)} EUR`,
+        ArtistRevenue: `${data.ArtistRevenue.toFixed(2)} EUR`
+      })),
       totalRecords: allRecords.length,
       processedFiles: req.files.map(f => f.originalname),
-      processingTime: Date.now() - startTime,
       errors: errors.length ? errors : undefined
     };
 
-    console.log('Analysis complete:', {
-      files: req.files.length,
-      records: allRecords.length,
-      tracks: trackSummary.length,
-      artists: artistSummary.length,
-      periods: periodSummary.length,
-      time: results.processingTime
-    });
+    // Trier les résultats
+    results.trackSummary.sort((a, b) => parseFloat(b.TotalRevenue) - parseFloat(a.TotalRevenue));
+    results.artistSummary.sort((a, b) => parseFloat(b.TotalRevenue) - parseFloat(a.TotalRevenue));
+    results.periodSummary.sort((a, b) => a.Period.localeCompare(b.Period));
 
     res.json(results);
   } catch (error) {
     console.error('Fatal error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to process files',
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      details: error.message
     });
   }
 });
