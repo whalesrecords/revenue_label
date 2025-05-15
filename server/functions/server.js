@@ -84,19 +84,15 @@ const uploadMiddleware = (req, res, next) => {
 
 // Request validation middleware
 const validateRequest = (req, res, next) => {
-  console.log(`${req.method} ${req.path} called`);
-  console.log('Headers:', req.headers);
-  console.log('Query:', req.query);
-  console.log('Body:', req.body);
+  const logInfo = {
+    method: req.method,
+    path: req.path,
+    headers: req.headers,
+    query: req.query,
+    body: req.method === 'POST' ? req.body : undefined
+  };
   
-  // Validate Content-Type for POST requests
-  if (req.method === 'POST' && !req.is('application/json') && !req.is('multipart/form-data')) {
-    return res.status(400).json({
-      error: 'Invalid Content-Type',
-      message: 'Content-Type must be application/json or multipart/form-data'
-    });
-  }
-
+  console.log('Request details:', JSON.stringify(logInfo, null, 2));
   next();
 };
 
@@ -318,8 +314,16 @@ router.get('/', (req, res) => {
 router.get('/templates', async (req, res) => {
   try {
     console.log('GET /templates called');
+    console.log('Request URL:', req.url);
+    console.log('Request path:', req.path);
     console.log('Request headers:', req.headers);
-    console.log('Available templates:', Object.keys(templates));
+
+    // Set proper headers
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     // Ensure templates is properly initialized
     if (!templates || typeof templates !== 'object') {
@@ -343,13 +347,14 @@ router.get('/templates', async (req, res) => {
       ...template
     }));
 
-    console.log('Sending templates response:', templateArray);
-    res.json(templateArray);
+    console.log('Sending templates response:', JSON.stringify(templateArray, null, 2));
+    return res.json(templateArray);
   } catch (error) {
-    console.error('Error getting templates:', error);
-    res.status(500).json({
+    console.error('Error in /templates route:', error);
+    return res.status(500).json({
       error: 'Failed to get templates',
-      message: error.message
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

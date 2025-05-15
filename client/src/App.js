@@ -124,7 +124,14 @@ function App() {
     const loadTemplates = async () => {
       try {
         console.log('Fetching templates from:', `${config.API_URL}/templates`);
-        const response = await fetch(`${config.API_URL}/templates`);
+        const response = await fetch(`${config.API_URL}/templates`, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          mode: 'cors',
+          credentials: 'omit'
+        });
         
         if (!response.ok) {
           let errorMessage = 'Failed to load templates';

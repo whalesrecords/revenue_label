@@ -37,8 +37,8 @@ function TemplateDialog({ open, onClose, onSave }) {
     formData.append('file', file);
 
     try {
-      console.log('Uploading file to:', `${config.API_URL}/read-headers`);
-      const response = await fetch(`${config.API_URL}/read-headers`, {
+      console.log('Uploading file to:', `${config.API_URL}${config.TEMPLATE_ENDPOINTS.readHeaders}`);
+      const response = await fetch(`${config.API_URL}${config.TEMPLATE_ENDPOINTS.readHeaders}`, {
         method: 'POST',
         body: formData,
         headers: {
@@ -51,16 +51,22 @@ function TemplateDialog({ open, onClose, onSave }) {
       console.log('Response headers:', response.headers);
 
       if (!response.ok) {
-        const errorData = await response.text();
-        console.error('Server error response:', errorData);
-        throw new Error(`Server error: ${response.status}`);
+        let errorMessage = 'Server error';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || `Server error: ${response.status}`;
+        } catch (e) {
+          console.error('Error parsing error response:', e);
+          errorMessage = await response.text();
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
       console.log('Received headers:', data);
       
       if (!data.headers || !Array.isArray(data.headers)) {
-        throw new Error('Invalid headers format received');
+        throw new Error('Invalid headers format received from server');
       }
 
       setAvailableHeaders(data.headers);
@@ -96,6 +102,10 @@ function TemplateDialog({ open, onClose, onSave }) {
 
   const handleSave = async () => {
     try {
+      if (!isValid()) {
+        throw new Error('Please fill in all required fields');
+      }
+
       // Convert mappings to the required format
       const template = {
         name,
@@ -107,6 +117,9 @@ function TemplateDialog({ open, onClose, onSave }) {
         currency: 'EUR'  // Default currency
       };
 
+      // Validate required fields
+      const requiredFields = ['track_column', 'artist_column', 'revenue_column', 'date_column'];
+      
       // Fill in the mapped fields
       mappings.forEach(({ source, target }) => {
         if (source && target) {
@@ -114,18 +127,29 @@ function TemplateDialog({ open, onClose, onSave }) {
         }
       });
 
+      // Check if all required fields are mapped
+      const missingFields = requiredFields.filter(field => !template[field]);
+      if (missingFields.length > 0) {
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+      }
+
       // Send the template to the server
-      const response = await fetch(`${config.API_URL}/templates`, {
+      const response = await fetch(`${config.API_URL}${config.TEMPLATE_ENDPOINTS.create}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
+        headers: config.DEFAULT_HEADERS,
         body: JSON.stringify(template)
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to save template: ${response.statusText}`);
+        let errorMessage = 'Failed to save template';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || `Server error: ${response.status}`;
+        } catch (e) {
+          console.error('Error parsing error response:', e);
+          errorMessage = await response.text();
+        }
+        throw new Error(errorMessage);
       }
 
       const savedTemplate = await response.json();
