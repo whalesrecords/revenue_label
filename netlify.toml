@@ -10,15 +10,6 @@
   included_files = ["server/functions/package.json"]
   external_node_modules = ["express", "serverless-http", "multer", "cors", "csv-parse", "csv-stringify"]
 
-[functions.server]
-  included_files = ["server/functions/package.json"]
-  external_node_modules = ["express", "serverless-http", "multer", "cors", "csv-parse", "csv-stringify"]
-  memory = 3008
-  timeout = 60
-
-[[plugins]]
-  package = "@netlify/plugin-functions-core"
-
 [[headers]]
   for = "/*"
     [headers.values]
@@ -29,7 +20,7 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "/api/:splat"
+  to = "/.netlify/functions/server/:splat"
   status = 200
   force = true
   headers = {Access-Control-Allow-Origin = "*"}

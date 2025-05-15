@@ -9,7 +9,7 @@
   "scripts": {
     "build": "cd client && npm install && npm run build && cd ../server && npm install"
   },
-  "devDependencies": {
-    "@netlify/plugin-functions-core": "^1.0.0"
+  "dependencies": {
+    "@netlify/functions": "^3.1.8"
   }
 }
