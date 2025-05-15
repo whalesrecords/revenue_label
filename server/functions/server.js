@@ -9,31 +9,22 @@ const path = require('path');
 const { Transform } = require('stream');
 
 const app = express();
+const router = express.Router();
 
 // Configuration CORS plus permissive
-app.use(cors({
+const corsOptions = {
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Accept', 'Origin', 'X-Requested-With', 'Authorization'],
   credentials: true,
   maxAge: 86400
-}));
+};
+
+app.use(cors(corsOptions));
+router.use(cors(corsOptions));
 
 // Base path for all routes
-const router = express.Router();
 app.use('/.netlify/functions/server', router);
-
-// Middleware pour gérer les options CORS
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Origin, X-Requested-With, Authorization');
-  res.header('Access-Control-Max-Age', '86400');
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  next();
-});
 
 // Configuration multer pour le stockage en mémoire
 const storage = multer.memoryStorage();
@@ -45,6 +36,7 @@ const upload = multer({
 });
 
 app.use(express.json());
+router.use(express.json());
 
 // Predefined templates
 const predefinedTemplates = {
@@ -229,16 +221,19 @@ router.post('/read-headers', upload.single('file'), (req, res) => {
 
 router.post('/analyze', upload.array('files'), async (req, res) => {
   console.log('POST /analyze called');
-  if (!req.files || req.files.length === 0) {
-    return res.status(400).json({ error: 'No files uploaded' });
-  }
-
+  
   try {
-    console.log(`Processing ${req.files.length} files...`);
+    if (!req.files || req.files.length === 0) {
+      console.log('No files uploaded');
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    console.log(`Processing ${req.files.length} files:`, req.files.map(f => f.originalname));
     const allRecords = [];
     
     // Process each file
     for (const file of req.files) {
+      console.log(`Processing file: ${file.originalname}`);
       const fileContent = file.buffer.toString();
       const fileRecords = await new Promise((resolve, reject) => {
         const records = [];
@@ -248,11 +243,19 @@ router.post('/analyze', upload.array('files'), async (req, res) => {
           trim: true
         })
         .on('data', (record) => records.push(record))
-        .on('error', reject)
-        .on('end', () => resolve(records));
+        .on('error', (err) => {
+          console.error(`Error parsing file ${file.originalname}:`, err);
+          reject(err);
+        })
+        .on('end', () => {
+          console.log(`Successfully parsed ${records.length} records from ${file.originalname}`);
+          resolve(records);
+        });
       });
       allRecords.push(...fileRecords);
     }
+
+    console.log(`Total records processed: ${allRecords.length}`);
 
     // Process records and generate summaries
     const trackSummary = {};
@@ -262,7 +265,6 @@ router.post('/analyze', upload.array('files'), async (req, res) => {
     // Process each record
     allRecords.forEach(record => {
       // Add processing logic here based on the template structure
-      // This is a placeholder for the actual processing logic
       const trackName = record.track_name || record.title || '';
       const artist = record.artist || '';
       const revenue = cleanRevenueValue(record.revenue || 0);
@@ -311,14 +313,18 @@ router.post('/analyze', upload.array('files'), async (req, res) => {
     const results = {
       trackSummary,
       artistSummary,
-      periodSummary
+      periodSummary,
+      totalRecords: allRecords.length
     };
 
     console.log('Analysis complete');
     res.json(results);
   } catch (error) {
     console.error('Error processing files:', error);
-    res.status(500).json({ error: 'Failed to process files' });
+    res.status(500).json({ 
+      error: 'Failed to process files',
+      details: error.message
+    });
   }
 });
 

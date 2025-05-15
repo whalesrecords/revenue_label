@@ -159,17 +159,29 @@ function App() {
     try {
       const formData = new FormData();
       files.forEach(file => {
+        console.log('Adding file to form data:', file.name, file.size);
         formData.append('files', file);
       });
 
-      console.log('Analyzing files...');
-      const response = await fetch(`${config.API_URL}/analyze`, {
+      const apiUrl = `${config.API_URL}/analyze`;
+      console.log('Sending files to:', apiUrl);
+      console.log('Number of files:', files.length);
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
-        body: formData
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+        }
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+
       if (!response.ok) {
-        throw new Error('Failed to analyze files');
+        const errorData = await response.text();
+        console.error('Server error response:', errorData);
+        throw new Error(`Server error: ${response.status}`);
       }
 
       const results = await response.json();
@@ -177,10 +189,10 @@ function App() {
       
       setAnalysisResults(results);
       setTabIndex(1); // Switch to results tab
-      setLoading(false);
     } catch (err) {
       console.error('Error analyzing files:', err);
       setError(err.message || 'Error analyzing files');
+    } finally {
       setLoading(false);
     }
   };
