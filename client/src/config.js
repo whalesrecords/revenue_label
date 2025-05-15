@@ -1,6 +1,20 @@
 const config = {
-  API_URL: process.env.REACT_APP_API_URL || '/api'
+  API_URL: process.env.REACT_APP_API_URL || '/.netlify/functions/server',
+  TEMPLATE_ENDPOINTS: {
+    create: '/templates',
+    list: '/templates',
+    readHeaders: '/read-headers'
+  },
+  DEFAULT_HEADERS: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
 };
+
+// Validation de la configuration
+if (!config.API_URL) {
+  console.error('API_URL is not configured properly');
+}
 
 console.log('API Configuration:', config);
 
