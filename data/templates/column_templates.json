@@ -1,0 +1,36 @@
+{
+    "Tunecore": {
+        "track_column": "Song Title",
+        "artist_column": "Artist",
+        "upc_column": "UPC",
+        "revenue_column": "Total Earned",
+        "date_column": "Sales Period",
+        "source": "Tunecore"
+    },
+    "BELIEVE UK": {
+        "track_column": "Track title",
+        "upc_column": "UPC",
+        "revenue_column": "Net Income",
+        "date_column": "Reporting Date"
+    },
+    "BELIEVE": {
+        "track_column": "Track title",
+        "upc_column": "UPC",
+        "revenue_column": "Net Income",
+        "date_column": "Operation Date"
+    },
+    "Tunecore +": {
+        "track_column": "Song Title",
+        "artist_column": "Artist",
+        "upc_column": "UPC",
+        "revenue_column": "Total Earned",
+        "date_column": "Posted Date"
+    },
+    "TuneCore Real": {
+        "track_column": "Song Title",
+        "artist_column": "Artist",
+        "upc_column": "UPC",
+        "revenue_column": "Total Earned",
+        "date_column": "Sales Period"
+    }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "csv-merge-server",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "cors": "^2.8.5",
+    "csv-stringify": "^6.5.2",
+    "express": "^5.1.0",
+    "multer": "^1.4.5-lts.2"
+  },
+  "scripts": {
+    "start": "node index.js"
+  }
+} 

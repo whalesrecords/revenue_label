@@ -1,0 +1,14 @@
+{
+    "DASHGO": {
+        "track_column": "Track Title",
+        "upc_column": "UPC",
+        "revenue_column": "Payable",
+        "date_column": "Transaction Date"
+    },
+    "Tunecore": {
+        "track_column": "Song Title",
+        "upc_column": "UPC",
+        "revenue_column": "Total Earned",
+        "date_column": "Posted Date"
+    }
+}

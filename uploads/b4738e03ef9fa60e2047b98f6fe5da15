@@ -1,0 +1,67 @@
+Transaction Date,Store,Region,Artist Name,Label Name,Album Name,Track Artist,UPC,Track Title,VideoId,ChannelId,ISRC,Label Track ID,Composers,Units,Currency,Product Type,Use Type,Revenue,Exchange Rate,USD Revenue,Distribution Rate,Net Revenue,Deal Share,Cover Song,Mechanical Royalty,Pub Admin Fee,Payable,Revenue Split (Y/N)
+2022-06-30,Youtube AD,BR,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"",UCoiKfdoFuxipyV64g4y9Xtg,US3DF2266823,"","",3,USD,S,"",0.00438,1.0,0.00438,90.0%,0.00394,34.0%,N,0,0,0.00134,Y
+2022-06-30,Youtube AD,JP,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"",UCoiKfdoFuxipyV64g4y9Xtg,US3DF2266823,"","",1,USD,S,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-30,Youtube AD,MX,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"",UCoiKfdoFuxipyV64g4y9Xtg,US3DF2266823,"","",1,USD,S,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-30,Youtube AD,US,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"",UCoiKfdoFuxipyV64g4y9Xtg,US3DF2266823,"","",1,USD,S,"",0.00375,1.0,0.00375,90.0%,0.00337,34.0%,N,0,0,0.00115,Y
+2022-06-30,Youtube Premium,AU,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,ENIDzfg1ecI,"",US3DF2266823,"","",1,USD,S,Partner-provided,0.00709,1.0,0.00709,90.0%,0.00638,34.0%,N,0,0,0.00217,Y
+2022-06-30,Youtube Premium,BR,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,ENIDzfg1ecI,"",US3DF2266823,"","",1,USD,S,Partner-provided,0.00122,1.0,0.00122,90.0%,0.00110,34.0%,N,0,0,0.00037,Y
+2022-06-30,Youtube Premium,CA,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,ENIDzfg1ecI,"",US3DF2266823,"","",1,USD,S,Partner-provided,0.00396,1.0,0.00396,90.0%,0.00356,34.0%,N,0,0,0.00121,Y
+2022-06-30,Youtube Premium,CL,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,ENIDzfg1ecI,"",US3DF2266823,"","",2,USD,S,Partner-provided,0.00341,1.0,0.00341,90.0%,0.00307,34.0%,N,0,0,0.00104,Y
+2022-06-30,Youtube Premium,US,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,ENIDzfg1ecI,"",US3DF2266823,"","",2,USD,S,Partner-provided,0.01065,1.0,0.01065,90.0%,0.00959,34.0%,N,0,0,0.00326,Y
+2022-06-01,TikTok,AR,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",3,USD,C,"",0.00480,0.985,0.00472,90.0%,0.00425,34.0%,N,0,0,0.00145,Y
+2022-06-01,TikTok,AU,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",1,USD,C,"",0.00160,0.985,0.00157,90.0%,0.00141,34.0%,N,0,0,0.00048,Y
+2022-06-01,TikTok,AZ,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",11,USD,C,"",0.01759,0.985,0.01732,90.0%,0.01559,34.0%,N,0,0,0.00530,Y
+2022-06-01,TikTok,BE,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,BO,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,BR,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",15,USD,C,"",0.02398,0.985,0.02362,90.0%,0.02126,34.0%,N,0,0,0.00723,Y
+2022-06-01,TikTok,BY,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",2,USD,C,"",0.00320,0.985,0.00315,90.0%,0.00284,34.0%,N,0,0,0.00097,Y
+2022-06-01,TikTok,CA,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,CL,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",2,USD,C,"",0.00320,0.985,0.00315,90.0%,0.00284,34.0%,N,0,0,0.00097,Y
+2022-06-01,TikTok,CO,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",1,USD,C,"",0.00160,0.985,0.00157,90.0%,0.00141,34.0%,N,0,0,0.00048,Y
+2022-06-01,TikTok,CR,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",1,USD,C,"",0.00160,0.985,0.00157,90.0%,0.00141,34.0%,N,0,0,0.00048,Y
+2022-06-01,TikTok,DE,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",3,USD,C,"",0.00480,0.985,0.00472,90.0%,0.00425,34.0%,N,0,0,0.00145,Y
+2022-06-01,TikTok,DK,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,DZ,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,EC,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",3,USD,C,"",0.00480,0.985,0.00472,90.0%,0.00425,34.0%,N,0,0,0.00145,Y
+2022-06-01,TikTok,EE,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,ES,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",7,USD,C,"",0.01119,0.985,0.01102,90.0%,0.00992,34.0%,N,0,0,0.00337,Y
+2022-06-01,TikTok,FI,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,FR,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",4,USD,C,"",0.00640,0.985,0.00630,90.0%,0.00567,34.0%,N,0,0,0.00193,Y
+2022-06-01,TikTok,GB,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",3,USD,C,"",0.00480,0.985,0.00472,90.0%,0.00425,34.0%,N,0,0,0.00145,Y
+2022-06-01,TikTok,GE,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",2,USD,C,"",0.00320,0.985,0.00315,90.0%,0.00284,34.0%,N,0,0,0.00097,Y
+2022-06-01,TikTok,GT,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,HR,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",1,USD,C,"",0.00160,0.985,0.00157,90.0%,0.00141,34.0%,N,0,0,0.00048,Y
+2022-06-01,TikTok,IE,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,IL,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,IT,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",3,USD,C,"",0.00480,0.985,0.00472,90.0%,0.00425,34.0%,N,0,0,0.00145,Y
+2022-06-01,TikTok,KG,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",1,USD,C,"",0.00160,0.985,0.00157,90.0%,0.00141,34.0%,N,0,0,0.00048,Y
+2022-06-01,TikTok,KW,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,KZ,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",4,USD,C,"",0.00640,0.985,0.00630,90.0%,0.00567,34.0%,N,0,0,0.00193,Y
+2022-06-01,TikTok,LK,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,LT,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",1,USD,C,"",0.00160,0.985,0.00157,90.0%,0.00141,34.0%,N,0,0,0.00048,Y
+2022-06-01,TikTok,LV,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",1,USD,C,"",0.00160,0.985,0.00157,90.0%,0.00141,34.0%,N,0,0,0.00048,Y
+2022-06-01,TikTok,MD,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",1,USD,C,"",0.00160,0.985,0.00157,90.0%,0.00141,34.0%,N,0,0,0.00048,Y
+2022-06-01,TikTok,ME,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,MX,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",16,USD,C,"",0.02558,0.985,0.02520,90.0%,0.02268,34.0%,N,0,0,0.00771,Y
+2022-06-01,TikTok,NO,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,PE,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",1,USD,C,"",0.00160,0.985,0.00157,90.0%,0.00141,34.0%,N,0,0,0.00048,Y
+2022-06-01,TikTok,PL,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",2,USD,C,"",0.00320,0.985,0.00315,90.0%,0.00284,34.0%,N,0,0,0.00097,Y
+2022-06-01,TikTok,PT,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,RS,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",1,USD,C,"",0.00160,0.985,0.00157,90.0%,0.00141,34.0%,N,0,0,0.00048,Y
+2022-06-01,TikTok,RU,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,SA,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,SI,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,SN,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,TN,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",1,USD,C,"",0.00160,0.985,0.00157,90.0%,0.00141,34.0%,N,0,0,0.00048,Y
+2022-06-01,TikTok,TR,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",44,USD,C,"",0.07035,0.985,0.06929,90.0%,0.06236,34.0%,N,0,0,0.02120,Y
+2022-06-01,TikTok,UA,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",6,USD,C,"",0.00959,0.985,0.00945,90.0%,0.00851,34.0%,N,0,0,0.00289,Y
+2022-06-01,TikTok,US,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+2022-06-01,TikTok,UY,Izzamuzzic,Izzamuzzic,Shootout,Izzamuzzic,1963620827565,Shootout,"","",US3DF2266823,"","",0,USD,C,"",0.00000,"",0.00000,90.0%,0.00000,34.0%,N,0,0,0.00000,Y
+
+"","","","","","","","","","","",Gross Deal Revenue:,0.0
+"","","","","","","","","","","",Split Pay Revenue:,0.25
+
+"","","","","","","","","","","",Total Payable (US):,0.0
+"","","","","","","","","","","",Total Payable (NON-US):,0.07
+
+"","","","","","","","","","","",Total Payable:,0.07
