@@ -1,0 +1,158 @@
+{
+  "templates": [
+    {
+      "name": "Spotify Format",
+      "mapping": {
+        "Period": "Period",
+        "Artist Name": "Artist",
+        "Track Name": "Track",
+        "Source": "Source",
+        "Total Revenue": "TotalRevenue",
+        "Artist Revenue": "ArtistRevenue"
+      }
+    },
+    {
+      "name": "Apple Music Format",
+      "mapping": {
+        "Reporting Period": "Period",
+        "Artist": "Artist",
+        "Title": "Track",
+        "Platform": "Source",
+        "Total Earnings": "TotalRevenue",
+        "Artist Share": "ArtistRevenue"
+      }
+    },
+    {
+      "name": "YouTube Format",
+      "mapping": {
+        "Month": "Period",
+        "Channel": "Artist",
+        "Video Title": "Track",
+        "Revenue Source": "Source",
+        "Gross Revenue": "TotalRevenue",
+        "Net Revenue": "ArtistRevenue"
+      }
+    },
+    {
+      "name": "Tunecore",
+      "mapping": {
+        "Song Title": "Track",
+        "Artist": "Artist",
+        "UPC": "UPC",
+        "Total Earned": "TotalRevenue",
+        "Sales Period": "Period",
+        "Source": "Tunecore"
+      }
+    },
+    {
+      "name": "BELIEVE UK",
+      "mapping": {
+        "Track title": "Track",
+        "UPC": "UPC",
+        "Net Income": "TotalRevenue",
+        "Reporting Date": "Period",
+        "Source": "BELIEVE UK"
+      }
+    },
+    {
+      "name": "BELIEVE",
+      "mapping": {
+        "Track title": "Track",
+        "UPC": "UPC",
+        "Net Income": "TotalRevenue",
+        "Operation Date": "Period",
+        "Source": "BELIEVE"
+      }
+    },
+    {
+      "name": "Tunecore +",
+      "mapping": {
+        "Song Title": "Track",
+        "Artist": "Artist",
+        "UPC": "UPC",
+        "Total Earned": "TotalRevenue",
+        "Posted Date": "Period",
+        "Source": "Tunecore"
+      }
+    },
+    {
+      "name": "TuneCore Real",
+      "mapping": {
+        "Song Title": "Track",
+        "Artist": "Artist",
+        "UPC": "UPC",
+        "Total Earned": "TotalRevenue",
+        "Sales Period": "Period",
+        "Source": "Tunecore"
+      }
+    }
+  ],
+  "Tunecore": {
+    "track_column": "Song Title",
+    "artist_column": "Artist",
+    "upc_column": "UPC",
+    "revenue_column": "Total Earned",
+    "date_column": "Sales Period",
+    "source": "Tunecore",
+    "currency": "EUR"
+  },
+  "BELIEVE UK": {
+    "track_column": "Track title",
+    "upc_column": "UPC",
+    "revenue_column": "Net Income",
+    "date_column": "Reporting Date",
+    "source": "BELIEVE UK"
+  },
+  "BELIEVE": {
+    "track_column": "Track title",
+    "upc_column": "UPC",
+    "revenue_column": "Net Income",
+    "date_column": "Operation Date",
+    "source": "BELIEVE"
+  },
+  "Tunecore +": {
+    "track_column": "Song Title",
+    "artist_column": "Artist",
+    "upc_column": "UPC",
+    "revenue_column": "Total Earned",
+    "date_column": "Posted Date",
+    "source": "Tunecore",
+    "currency": "EUR"
+  },
+  "TuneCore Real": {
+    "track_column": "Song Title",
+    "artist_column": "Artist",
+    "upc_column": "UPC",
+    "revenue_column": "Total Earned",
+    "date_column": "Sales Period",
+    "source": "Tunecore",
+    "currency": "EUR"
+  },
+  "DashGo": {
+    "track_column": "Track Title",
+    "artist_column": "Artist Name",
+    "upc_column": "UPC",
+    "revenue_column": "Payable",
+    "date_column": "Transaction Date",
+    "currency": "USD",
+    "source": "DashGo"
+  },
+  "DG": {
+    "track_column": "Track Title",
+    "artist_column": "Artist Name",
+    "upc_column": "UPC",
+    "revenue_column": "Payable",
+    "date_column": "Transaction Date",
+    "currency": "USD",
+    "source": "DG"
+  },
+  "DD": {
+    "track_column": "Track Title",
+    "artist_column": "Artist Name",
+    "upc_column": "UPC",
+    "revenue_column": "Payable",
+    "date_column": "Transaction Date",
+    "currency": "USD",
+    "source": "DD"
+  }
+}
