@@ -1,405 +1,161 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Tab } from '@headlessui/react';
-import { ResponsiveBar } from '@nivo/bar';
-import { ResponsiveLine } from '@nivo/line';
-import { ResponsivePie } from '@nivo/pie';
+import React from 'react';
+import {
+  Box,
+  Paper,
+  Typography,
+  Grid,
+  useTheme
+} from '@mui/material';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
 
-const chartTheme = {
-  background: 'transparent',
-  textColor: '#333333',
-  fontSize: 11,
-  axis: {
-    domain: {
-      line: {
-        stroke: '#777777',
-        strokeWidth: 1
-      }
-    },
-    ticks: {
-      line: {
-        stroke: '#777777',
-        strokeWidth: 1
-      }
-    }
-  },
-  grid: {
-    line: {
-      stroke: '#dddddd',
-      strokeWidth: 1
-    }
-  },
-  tooltip: {
-    container: {
-      background: 'white',
-      color: '#333333',
-      fontSize: '12px',
-      borderRadius: '8px',
-      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-      padding: '12px'
-    }
+const ChartView = ({ data }) => {
+  const theme = useTheme();
+
+  if (!data || !data.summary) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography variant="h6" color="text.secondary">
+          Aucune donnée disponible pour les graphiques
+        </Typography>
+      </Box>
+    );
   }
-};
 
-function ChartView({ data }) {
-  const [chartType, setChartType] = useState('revenue');
-  const [groupBy, setGroupBy] = useState('track');
-
-  const prepareBarData = () => {
-    let sourceData;
-
-    if (groupBy === 'track') {
-      sourceData = data.trackSummary.slice(0, 10).map(item => ({
-        id: item.Track,
-        TotalRevenue: parseFloat(item.TotalRevenue.split(' ')[0]),
-        ArtistRevenue: parseFloat(item.ArtistRevenue.split(' ')[0])
-      }));
-    } else if (groupBy === 'artist') {
-      sourceData = data.artistSummary.map(item => ({
-        id: item.Artist,
-        TotalRevenue: parseFloat(item.TotalRevenue.split(' ')[0]),
-        ArtistRevenue: parseFloat(item.ArtistRevenue.split(' ')[0])
-      }));
-    } else {
-      sourceData = data.periodSummary.map(item => ({
-        id: item.Period,
-        TotalRevenue: parseFloat(item.TotalRevenue.split(' ')[0]),
-        ArtistRevenue: parseFloat(item.ArtistRevenue.split(' ')[0])
-      }));
-    }
-
-    return sourceData.sort((a, b) => b.TotalRevenue - a.TotalRevenue);
+  // Préparer les données pour les graphiques
+  const revenueData = {
+    total: parseFloat(data.summary.totalRevenue),
+    artist: parseFloat(data.summary.totalArtistRevenue),
+    label: parseFloat(data.summary.totalRevenue) - parseFloat(data.summary.totalArtistRevenue)
   };
 
-  const prepareLineData = () => {
-    const periodData = data.periodSummary.map(item => ({
-      x: item.Period,
-      y: parseFloat(item.TotalRevenue.split(' ')[0])
-    })).sort((a, b) => a.x.localeCompare(b.x));
+  const pieData = [
+    { name: 'Revenus Artistes (70%)', value: revenueData.artist },
+    { name: 'Revenus Label (30%)', value: revenueData.label }
+  ];
 
-    return [
-      {
-        id: 'Total Revenue',
-        data: periodData
-      }
-    ];
-  };
+  const COLORS = [theme.palette.primary.main, theme.palette.secondary.main];
 
-  const preparePieData = () => {
-    return data.artistSummary.map(item => ({
-      id: item.Artist,
-      label: item.Artist,
-      value: parseFloat(item.TotalRevenue.split(' ')[0])
-    }));
-  };
-
-  const renderChart = () => {
-    switch (chartType) {
-      case 'revenue':
-        return (
-          <div className="h-[500px]">
-            <ResponsiveBar
-              data={prepareBarData()}
-              keys={['TotalRevenue', 'ArtistRevenue']}
-              indexBy="id"
-              margin={{ top: 50, right: 130, bottom: 50, left: 60 }}
-              padding={0.3}
-              valueScale={{ type: 'linear' }}
-              indexScale={{ type: 'band', round: true }}
-              colors={{ scheme: 'nivo' }}
-              theme={chartTheme}
-              defs={[
-                {
-                  id: 'dots',
-                  type: 'patternDots',
-                  background: 'inherit',
-                  color: '#38bdf8',
-                  size: 4,
-                  padding: 1,
-                  stagger: true
-                },
-                {
-                  id: 'lines',
-                  type: 'patternLines',
-                  background: 'inherit',
-                  color: '#38bdf8',
-                  rotation: -45,
-                  lineWidth: 6,
-                  spacing: 10
-                }
-              ]}
-              borderColor={{
-                from: 'color',
-                modifiers: [['darker', 1.6]]
-              }}
-              axisTop={null}
-              axisRight={null}
-              axisBottom={{
-                tickSize: 5,
-                tickPadding: 5,
-                tickRotation: -45,
-                legend: groupBy === 'period' ? 'Period' : groupBy === 'artist' ? 'Artist' : 'Track',
-                legendPosition: 'middle',
-                legendOffset: 40
-              }}
-              axisLeft={{
-                tickSize: 5,
-                tickPadding: 5,
-                tickRotation: 0,
-                legend: 'Revenue',
-                legendPosition: 'middle',
-                legendOffset: -40
-              }}
-              labelSkipWidth={12}
-              labelSkipHeight={12}
-              labelTextColor={{
-                from: 'color',
-                modifiers: [['darker', 1.6]]
-              }}
-              legends={[
-                {
-                  dataFrom: 'keys',
-                  anchor: 'bottom-right',
-                  direction: 'column',
-                  justify: false,
-                  translateX: 120,
-                  translateY: 0,
-                  itemsSpacing: 2,
-                  itemWidth: 100,
-                  itemHeight: 20,
-                  itemDirection: 'left-to-right',
-                  itemOpacity: 0.85,
-                  symbolSize: 20,
-                  effects: [
-                    {
-                      on: 'hover',
-                      style: {
-                        itemOpacity: 1
-                      }
-                    }
-                  ]
-                }
-              ]}
-              role="application"
-              ariaLabel="Revenue chart"
-            />
-          </div>
-        );
-      case 'trend':
-        return (
-          <div className="h-[500px]">
-            <ResponsiveLine
-              data={prepareLineData()}
-              margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
-              xScale={{ type: 'point' }}
-              yScale={{
-                type: 'linear',
-                min: 'auto',
-                max: 'auto',
-                stacked: false,
-                reverse: false
-              }}
-              theme={chartTheme}
-              yFormat=" >-.2f"
-              axisTop={null}
-              axisRight={null}
-              axisBottom={{
-                tickSize: 5,
-                tickPadding: 5,
-                tickRotation: -45,
-                legend: 'Period',
-                legendOffset: 40,
-                legendPosition: 'middle'
-              }}
-              axisLeft={{
-                tickSize: 5,
-                tickPadding: 5,
-                tickRotation: 0,
-                legend: 'Revenue',
-                legendOffset: -40,
-                legendPosition: 'middle'
-              }}
-              pointSize={10}
-              pointColor={{ theme: 'background' }}
-              pointBorderWidth={2}
-              pointBorderColor={{ from: 'serieColor' }}
-              pointLabelYOffset={-12}
-              useMesh={true}
-              legends={[
-                {
-                  anchor: 'bottom-right',
-                  direction: 'column',
-                  justify: false,
-                  translateX: 100,
-                  translateY: 0,
-                  itemsSpacing: 0,
-                  itemDirection: 'left-to-right',
-                  itemWidth: 80,
-                  itemHeight: 20,
-                  itemOpacity: 0.75,
-                  symbolSize: 12,
-                  symbolShape: 'circle',
-                  symbolBorderColor: 'rgba(0, 0, 0, .5)',
-                  effects: [
-                    {
-                      on: 'hover',
-                      style: {
-                        itemBackground: 'rgba(0, 0, 0, .03)',
-                        itemOpacity: 1
-                      }
-                    }
-                  ]
-                }
-              ]}
-            />
-          </div>
-        );
-      case 'distribution':
-        return (
-          <div className="h-[500px]">
-            <ResponsivePie
-              data={preparePieData()}
-              margin={{ top: 40, right: 80, bottom: 80, left: 80 }}
-              innerRadius={0.5}
-              padAngle={0.7}
-              cornerRadius={3}
-              activeOuterRadiusOffset={8}
-              borderWidth={1}
-              borderColor={{
-                from: 'color',
-                modifiers: [['darker', 0.2]]
-              }}
-              theme={chartTheme}
-              arcLinkLabelsSkipAngle={10}
-              arcLinkLabelsTextColor="#333333"
-              arcLinkLabelsThickness={2}
-              arcLinkLabelsColor={{ from: 'color' }}
-              arcLabelsSkipAngle={10}
-              arcLabelsTextColor={{
-                from: 'color',
-                modifiers: [['darker', 2]]
-              }}
-              defs={[
-                {
-                  id: 'dots',
-                  type: 'patternDots',
-                  background: 'inherit',
-                  color: 'rgba(255, 255, 255, 0.3)',
-                  size: 4,
-                  padding: 1,
-                  stagger: true
-                },
-                {
-                  id: 'lines',
-                  type: 'patternLines',
-                  background: 'inherit',
-                  color: 'rgba(255, 255, 255, 0.3)',
-                  rotation: -45,
-                  lineWidth: 6,
-                  spacing: 10
-                }
-              ]}
-              legends={[
-                {
-                  anchor: 'bottom',
-                  direction: 'row',
-                  justify: false,
-                  translateX: 0,
-                  translateY: 56,
-                  itemsSpacing: 0,
-                  itemWidth: 100,
-                  itemHeight: 18,
-                  itemTextColor: '#999',
-                  itemDirection: 'left-to-right',
-                  itemOpacity: 1,
-                  symbolSize: 18,
-                  symbolShape: 'circle',
-                  effects: [
-                    {
-                      on: 'hover',
-                      style: {
-                        itemTextColor: '#000'
-                      }
-                    }
-                  ]
-                }
-              ]}
-            />
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
+  // Formatter pour les valeurs monétaires
+  const formatEuros = (value) => `${value.toFixed(2)} €`;
 
   return (
-    <div className="space-y-6">
-      <Tab.Group>
-        <Tab.List className="flex space-x-1 rounded-xl bg-primary-900/20 p-1">
-          <Tab
-            className={({ selected }) =>
-              `w-full rounded-lg py-2.5 text-sm font-medium leading-5
-              ${selected
-                ? 'bg-white text-primary-700 shadow'
-                : 'text-gray-600 hover:bg-white/[0.12] hover:text-primary-600'
-              }`
-            }
-            onClick={() => setChartType('revenue')}
-          >
-            Revenue Comparison
-          </Tab>
-          <Tab
-            className={({ selected }) =>
-              `w-full rounded-lg py-2.5 text-sm font-medium leading-5
-              ${selected
-                ? 'bg-white text-primary-700 shadow'
-                : 'text-gray-600 hover:bg-white/[0.12] hover:text-primary-600'
-              }`
-            }
-            onClick={() => setChartType('trend')}
-          >
-            Revenue Trend
-          </Tab>
-          <Tab
-            className={({ selected }) =>
-              `w-full rounded-lg py-2.5 text-sm font-medium leading-5
-              ${selected
-                ? 'bg-white text-primary-700 shadow'
-                : 'text-gray-600 hover:bg-white/[0.12] hover:text-primary-600'
-              }`
-            }
-            onClick={() => setChartType('distribution')}
-          >
-            Revenue Distribution
-          </Tab>
-        </Tab.List>
-      </Tab.Group>
+    <Box sx={{ p: 2 }}>
+      <Grid container spacing={3}>
+        {/* Graphique en secteurs de la répartition des revenus */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, height: '400px' }}>
+            <Typography variant="h6" gutterBottom align="center">
+              Répartition des Revenus
+            </Typography>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={true}
+                  label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                  outerRadius={130}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={formatEuros} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Grid>
 
-      {chartType === 'revenue' && (
-        <div className="flex justify-end space-x-4">
-          <select
-            className="rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-            value={groupBy}
-            onChange={(e) => setGroupBy(e.target.value)}
-          >
-            <option value="track">By Track</option>
-            <option value="artist">By Artist</option>
-            <option value="period">By Period</option>
-          </select>
-        </div>
-      )}
+        {/* Statistiques générales */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, height: '400px' }}>
+            <Typography variant="h6" gutterBottom align="center">
+              Statistiques Générales
+            </Typography>
+            <Box sx={{ mt: 4 }}>
+              <Typography variant="body1" gutterBottom>
+                Nombre total de fichiers : {data.summary.totalFiles}
+              </Typography>
+              <Typography variant="body1" gutterBottom>
+                Nombre total d'enregistrements : {data.summary.totalRecords}
+              </Typography>
+              <Typography variant="body1" gutterBottom>
+                Titres uniques : {data.summary.uniqueTracks}
+              </Typography>
+              <Typography variant="body1" gutterBottom>
+                Artistes uniques : {data.summary.uniqueArtists}
+              </Typography>
+              <Typography variant="body1" gutterBottom>
+                Périodes couvertes : {data.summary.uniquePeriods}
+              </Typography>
+              <Typography variant="h6" sx={{ mt: 3, color: theme.palette.primary.main }}>
+                Revenu Total : {data.summary.totalRevenue}
+              </Typography>
+              <Typography variant="h6" sx={{ color: theme.palette.secondary.main }}>
+                Revenu Artistes : {data.summary.totalArtistRevenue}
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
 
-      <motion.div
-        key={chartType + groupBy}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
-        className="rounded-xl bg-white p-4 shadow-lg"
-      >
-        {renderChart()}
-      </motion.div>
-    </div>
+        {/* Graphique des fichiers traités */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 3, height: '400px' }}>
+            <Typography variant="h6" gutterBottom align="center">
+              Taille des Fichiers Traités
+            </Typography>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={data.processedFiles}
+                margin={{
+                  top: 20,
+                  right: 30,
+                  left: 20,
+                  bottom: 60
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="name"
+                  angle={-45}
+                  textAnchor="end"
+                  interval={0}
+                  height={60}
+                />
+                <YAxis
+                  label={{ value: 'Taille (MB)', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip formatter={(value) => `${value} MB`} />
+                <Bar
+                  dataKey="size"
+                  fill={theme.palette.primary.main}
+                  name="Taille du fichier"
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Grid>
+      </Grid>
+    </Box>
   );
-}
+};
 
 export default ChartView; 

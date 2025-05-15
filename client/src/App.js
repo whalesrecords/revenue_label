@@ -116,6 +116,8 @@ function App() {
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [mergedResults, setMergedResults] = useState(null);
+  const [processingStatus, setProcessingStatus] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
     // Load templates on mount
@@ -151,49 +153,116 @@ function App() {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const mergeBatchResults = (batchResults) => {
+    const merged = {
+      totalRevenue: 0,
+      totalArtistRevenue: 0,
+      uniqueTracks: new Set(),
+      uniqueArtists: new Set(),
+      uniquePeriods: new Set(),
+      totalRecords: 0,
+      processedFiles: []
+    };
+
+    batchResults.forEach(result => {
+      merged.totalRevenue += parseFloat(result.summary.totalRevenue);
+      merged.totalArtistRevenue += parseFloat(result.summary.totalArtistRevenue);
+      merged.totalRecords += result.summary.totalRecords;
+      result.summary.uniqueTracks.forEach(track => merged.uniqueTracks.add(track));
+      result.summary.uniqueArtists.forEach(artist => merged.uniqueArtists.add(artist));
+      result.summary.uniquePeriods.forEach(period => merged.uniquePeriods.add(period));
+      merged.processedFiles.push(...result.processedFiles);
+    });
+
+    return {
+      summary: {
+        totalFiles: merged.processedFiles.length,
+        totalRecords: merged.totalRecords,
+        totalRevenue: `${merged.totalRevenue.toFixed(2)} EUR`,
+        totalArtistRevenue: `${merged.totalArtistRevenue.toFixed(2)} EUR`,
+        uniqueTracks: merged.uniqueTracks.size,
+        uniqueArtists: merged.uniqueArtists.size,
+        uniquePeriods: merged.uniquePeriods.size
+      },
+      processedFiles: merged.processedFiles
+    };
+  };
+
   const handleAnalyze = async () => {
     setLoading(true);
     setError(null);
     setAnalysisResults(null);
-
+    setMergedResults(null);
+    
     try {
-      const formData = new FormData();
-      files.forEach(file => {
-        console.log('Adding file to form data:', file.name, file.size);
-        formData.append('files', file);
-      });
+      const batchSize = 10;
+      const batches = [];
+      
+      // Diviser les fichiers en lots
+      for (let i = 0; i < files.length; i += batchSize) {
+        batches.push(files.slice(i, Math.min(i + batchSize, files.length)));
+      }
+      
+      setProcessingStatus({ current: 0, total: batches.length });
+      const batchResults = [];
 
-      const apiUrl = `${config.API_URL}/analyze`;
-      console.log('Sending files to:', apiUrl);
-      console.log('Number of files:', files.length);
+      // Traiter chaque lot
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        setProcessingStatus(prev => ({ ...prev, current: i + 1 }));
 
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Accept': 'application/json',
+        const formData = new FormData();
+        batch.forEach(file => {
+          console.log('Adding file to batch:', file.name, file.size);
+          formData.append('files', file);
+        });
+
+        try {
+          const response = await fetch(`${config.API_URL}/analyze`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'Accept': 'application/json',
+            },
+            credentials: 'omit'
+          });
+
+          if (!response.ok) {
+            let errorMessage = 'Error processing files';
+            try {
+              const errorData = await response.json();
+              errorMessage = errorData.details || errorData.error || `Server error: ${response.status}`;
+            } catch (e) {
+              console.error('Error parsing error response:', e);
+            }
+            throw new Error(errorMessage);
+          }
+
+          const result = await response.json();
+          console.log('Batch result:', result);
+          batchResults.push(result);
+          
+          // Mettre à jour les résultats partiels
+          if (batchResults.length > 0) {
+            const partialMerged = mergeBatchResults(batchResults);
+            setMergedResults(partialMerged);
+          }
+        } catch (err) {
+          console.error(`Error processing batch ${i + 1}:`, err);
+          throw new Error(`Erreur lors du traitement du lot ${i + 1}: ${err.message}`);
         }
-      });
-
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error('Server error response:', errorData);
-        throw new Error(`Server error: ${response.status}`);
       }
 
-      const results = await response.json();
-      console.log('Analysis results:', results);
-      
-      setAnalysisResults(results);
+      // Fusionner tous les résultats
+      const finalResults = mergeBatchResults(batchResults);
+      setAnalysisResults(finalResults);
       setTabIndex(1); // Switch to results tab
     } catch (err) {
       console.error('Error analyzing files:', err);
-      setError(err.message || 'Error analyzing files');
+      setError(err.message || 'Erreur lors de l\'analyse des fichiers');
     } finally {
       setLoading(false);
+      setProcessingStatus({ current: 0, total: 0 });
     }
   };
 
@@ -230,6 +299,11 @@ function App() {
       setError(err.message || 'Failed to save template. Please try again.');
     }
   };
+
+  // Ajouter l'indicateur de progression
+  const progressMessage = processingStatus.total > 0 
+    ? `Traitement du lot ${processingStatus.current}/${processingStatus.total}` 
+    : '';
 
   return (
     <ThemeProvider theme={theme}>
@@ -437,6 +511,17 @@ function App() {
                 <ResultsTable data={analysisResults} />
               ) : (
                 <ChartView data={analysisResults} />
+              )}
+            </Box>
+          )}
+
+          {loading && (
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <CircularProgress />
+              {progressMessage && (
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  {progressMessage}
+                </Typography>
               )}
             </Box>
           )}

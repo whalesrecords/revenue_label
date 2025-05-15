@@ -153,7 +153,8 @@ function ResultsTable({ data }) {
   };
 
   const filterData = (dataArray) => {
-    if (!filter) return dataArray;
+    if (!filter) return dataArray || [];
+    if (!Array.isArray(dataArray)) return [];
     
     return dataArray.filter(row => 
       Object.values(row).some(value => 
@@ -163,6 +164,8 @@ function ResultsTable({ data }) {
   };
 
   const sortData = (dataArray) => {
+    if (!Array.isArray(dataArray)) return [];
+    
     return [...dataArray].sort((a, b) => {
       let aValue = a[sortBy];
       let bValue = b[sortBy];
@@ -188,7 +191,7 @@ function ResultsTable({ data }) {
     switch (currentTab) {
       case 0: // By Track
         exportData = sortData(filterData(data.trackSummary));
-        if (exportData.length > 0) {
+        if (exportData && exportData.length > 0) {
           const artist = exportData[0].Artist;
           const latestPeriod = exportData[0].Periods.split(', ').sort().pop();
           fileName = formatFileName(artist, latestPeriod);
@@ -198,7 +201,7 @@ function ResultsTable({ data }) {
         break;
       case 1: // By Artist
         exportData = sortData(filterData(data.artistSummary));
-        if (exportData.length > 0) {
+        if (exportData && exportData.length > 0) {
           const artist = exportData[0].Artist;
           const latestPeriod = exportData[0].Periods.split(', ').sort().pop();
           fileName = formatFileName(artist, latestPeriod);
@@ -207,9 +210,9 @@ function ResultsTable({ data }) {
         }
         break;
       case 2: // By Period
-        exportData = groupByQuarters(sortData(filterData(data.periodSummary)));
-        if (exportData.length > 0) {
-          const artist = data.artistSummary[0]?.Artist || 'all';
+        exportData = sortData(filterData(data.periodSummary));
+        if (exportData && exportData.length > 0) {
+          const artist = data.artistSummary && data.artistSummary[0]?.Artist || 'all';
           fileName = formatFileName(artist, exportData[0].Period);
         } else {
           fileName = 'period_summary.csv';
@@ -219,6 +222,11 @@ function ResultsTable({ data }) {
         return;
     }
     
+    if (!exportData || exportData.length === 0) {
+      console.warn('No data to export');
+      return;
+    }
+
     const csvContent = convertToCSV(exportData);
     downloadCSV(csvContent, fileName);
   };

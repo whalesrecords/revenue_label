@@ -13,31 +13,77 @@ const router = express.Router();
 
 // Configuration CORS plus permissive
 const corsOptions = {
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  origin: '*', // Allow all origins in development
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   allowedHeaders: ['Content-Type', 'Accept', 'Origin', 'X-Requested-With', 'Authorization'],
   credentials: true,
-  maxAge: 86400
+  maxAge: 86400,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
+// Appliquer CORS à toutes les routes
 app.use(cors(corsOptions));
 router.use(cors(corsOptions));
 
-// Base path for all routes
-app.use('/.netlify/functions/server', router);
+// Middleware pour gérer les erreurs CORS
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
 
-// Configuration multer pour le stockage en mémoire
+// Configuration des limites Express
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Configuration multer avec gestion d'erreur
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-    files: 5 // Maximum 5 files at once
+    fileSize: 50 * 1024 * 1024, // 50MB limit par fichier
+    files: 10, // Maximum 10 fichiers
+    fieldSize: 50 * 1024 * 1024
   }
-});
+}).array('files');
 
-app.use(express.json());
-router.use(express.json());
+// Middleware de gestion des erreurs multer
+const uploadMiddleware = (req, res, next) => {
+  upload(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          error: 'File too large',
+          details: `Le fichier dépasse la limite de 50MB`
+        });
+      }
+      if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({
+          error: 'Too many files',
+          details: 'Maximum 10 fichiers peuvent être uploadés à la fois'
+        });
+      }
+      return res.status(400).json({
+        error: 'Upload error',
+        details: err.message
+      });
+    } else if (err) {
+      return res.status(500).json({
+        error: 'Server error',
+        details: 'Une erreur est survenue pendant l\'upload'
+      });
+    }
+    next();
+  });
+};
+
+// Base path for all routes
+app.use('/.netlify/functions/server', router);
 
 // Predefined templates
 const predefinedTemplates = {
@@ -113,8 +159,28 @@ const predefinedTemplates = {
   }
 };
 
-// Initialize templates with predefined ones
+// Initialize templates with predefined ones and load from file if exists
 let templates = { ...predefinedTemplates };
+const templatesFile = path.join(__dirname, 'templates.json');
+
+try {
+  if (fs.existsSync(templatesFile)) {
+    const savedTemplates = JSON.parse(fs.readFileSync(templatesFile, 'utf8'));
+    templates = { ...templates, ...savedTemplates };
+  }
+} catch (error) {
+  console.error('Error loading templates:', error);
+}
+
+// Function to save templates to file
+const saveTemplatesToFile = () => {
+  try {
+    fs.writeFileSync(templatesFile, JSON.stringify(templates, null, 2));
+  } catch (error) {
+    console.error('Error saving templates to file:', error);
+  }
+};
+
 console.log('Templates initialized:', Object.keys(templates));
 
 // Helper functions
@@ -137,36 +203,77 @@ const cleanRevenueValue = (value) => {
   }
 };
 
-// Helper function to safely parse CSV content
+const cleanupMemory = () => {
+  if (global.gc) {
+    global.gc();
+  }
+};
+
 const parseCSVContent = async (fileContent, fileName) => {
   return new Promise((resolve, reject) => {
     const records = [];
     let headersParsed = false;
+    let rowCount = 0;
+    const MAX_ROWS = 500000; // Augmenter la limite de lignes
 
-    parse(fileContent, {
+    const parser = parse({
       columns: true,
       skip_empty_lines: true,
       trim: true,
       relaxColumnCount: true,
       relaxQuotes: true,
-      skipEmptyLines: true
-    })
-    .on('data', (record) => {
-      try {
-        // Vérifier si l'enregistrement est valide
-        if (Object.keys(record).length > 0) {
-          records.push(record);
-        }
-      } catch (err) {
-        console.warn(`Warning: Invalid record in ${fileName}`);
+      skipEmptyLines: true,
+      bom: true,
+      chunk_size: 2 * 1024 * 1024, // Augmenter à 2MB par chunk
+      on_record: (record) => {
+        // Nettoyage et validation basique des données
+        const cleanRecord = {};
+        Object.keys(record).forEach(key => {
+          if (typeof record[key] === 'string') {
+            cleanRecord[key] = record[key].trim();
+          } else {
+            cleanRecord[key] = record[key];
+          }
+        });
+        return cleanRecord;
       }
-    })
-    .on('error', (err) => {
+    });
+
+    parser.on('readable', function() {
+      let record;
+      while (rowCount < MAX_ROWS && (record = parser.read())) {
+        try {
+          if (Object.keys(record).length > 0) {
+            records.push(record);
+            rowCount++;
+
+            // Nettoyage périodique de la mémoire
+            if (rowCount % 10000 === 0) {
+              cleanupMemory();
+            }
+          }
+        } catch (err) {
+          console.warn(`Warning: Invalid record in ${fileName} at row ${rowCount + 1}`);
+        }
+      }
+    });
+
+    parser.on('error', (err) => {
+      console.error(`Error parsing ${fileName}:`, err);
+      cleanupMemory();
       reject(new Error(`Failed to parse ${fileName}: ${err.message}`));
-    })
-    .on('end', () => {
+    });
+
+    parser.on('end', () => {
+      if (rowCount >= MAX_ROWS) {
+        console.warn(`Warning: File ${fileName} exceeded maximum row limit of ${MAX_ROWS}`);
+      }
+      cleanupMemory();
       resolve(records);
     });
+
+    parser.write(fileContent);
+    parser.end();
   });
 };
 
@@ -188,24 +295,40 @@ router.get('/', (req, res) => {
 });
 
 router.get('/templates', (req, res) => {
-  console.log('GET /templates called');
-  console.log('Available templates:', Object.keys(templates));
-  res.setHeader('Content-Type', 'application/json');
-  res.json(Object.entries(templates).map(([name, template]) => ({
-    name,
-    ...template
-  })));
+  try {
+    console.log('GET /templates called');
+    console.log('Available templates:', Object.keys(templates));
+    res.setHeader('Content-Type', 'application/json');
+    res.json(Object.entries(templates).map(([name, template]) => ({
+      name,
+      ...template
+    })));
+  } catch (error) {
+    console.error('Error getting templates:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      error: 'Failed to get templates',
+      details: error.message 
+    });
+  }
 });
 
 router.post('/templates', express.json(), (req, res) => {
   try {
     const template = req.body;
     console.log('Received template:', template);
+    
+    if (!template || !template.name) {
+      return res.status(400).json({ 
+        status: 'error',
+        error: 'Template name is required'
+      });
+    }
+
     const requiredFields = ['name', 'track_column', 'artist_column', 'upc_column', 'revenue_column', 'date_column', 'currency'];
     const missingFields = requiredFields.filter(field => !template[field]);
     
     if (missingFields.length > 0) {
-      res.setHeader('Content-Type', 'application/json');
       return res.status(400).json({ 
         status: 'error',
         error: 'Invalid template format', 
@@ -223,12 +346,20 @@ router.post('/templates', express.json(), (req, res) => {
       source: template.name
     };
 
-    res.setHeader('Content-Type', 'application/json');
-    res.json({ status: 'success', data: templates[template.name] });
+    // Save templates to file
+    saveTemplatesToFile();
+
+    res.json({ 
+      status: 'success', 
+      data: templates[template.name] 
+    });
   } catch (error) {
     console.error('Error saving template:', error);
-    res.setHeader('Content-Type', 'application/json');
-    res.status(500).json({ status: 'error', error: 'Failed to save template' });
+    res.status(500).json({ 
+      status: 'error', 
+      error: 'Failed to save template',
+      details: error.message 
+    });
   }
 });
 
@@ -264,230 +395,173 @@ router.post('/read-headers', upload.single('file'), (req, res) => {
   }
 });
 
-router.post('/analyze', upload.array('files'), async (req, res) => {
-  console.log('POST /analyze called');
-  
-  try {
-    // Log request details
-    console.log('Request files:', req.files?.length);
-    console.log('Request body:', req.body);
-    
-    // Vérifier les fichiers
-    if (!req.files?.length) {
-      console.log('No files uploaded');
-      return res.status(400).json({
-        error: 'No files uploaded',
-        details: 'Please select at least one CSV file to analyze'
-      });
-    }
+// Fonction optimisée pour le traitement des fichiers
+const processFileOptimized = async (fileContent, fileName) => {
+  return new Promise((resolve, reject) => {
+    const results = {
+      records: [],
+      totalRevenue: 0,
+      totalArtistRevenue: 0,
+      uniqueTracks: new Set(),
+      uniqueArtists: new Set(),
+      uniquePeriods: new Set()
+    };
 
-    // Log file details
-    req.files.forEach((file, index) => {
-      console.log(`File ${index + 1}:`, {
-        name: file.originalname,
-        size: file.size,
-        mimetype: file.mimetype
+    const parser = parse({
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+      relaxColumnCount: true,
+      relaxQuotes: true,
+      skipEmptyLines: true,
+      bom: true,
+      chunk_size: 512 * 1024, // Réduire à 512KB par chunk pour Netlify
+    });
+
+    parser.on('readable', function() {
+      let record;
+      while ((record = parser.read())) {
+        try {
+          // Extraction et nettoyage minimal des données essentielles
+          const track = (record['track_name'] || record['title'] || record['Track Title'] || record['Song Title'] || '').trim();
+          const artist = (record['artist'] || record['Artist'] || record['Artist Name'] || '').trim();
+          const period = (record['period'] || record['Sales Period'] || record['Transaction Date'] || record['Reporting Date'] || record['Operation Date'] || '').trim();
+          const revenue = cleanRevenueValue(record['revenue'] || record['Payable'] || record['Total Earned'] || record['Net Income'] || '0');
+
+          if (track && artist && period) {
+            results.records.push({ track, artist, period, revenue });
+            results.totalRevenue += revenue;
+            results.totalArtistRevenue += revenue * 0.7;
+            results.uniqueTracks.add(`${track}-${artist}`);
+            results.uniqueArtists.add(artist);
+            results.uniquePeriods.add(period);
+          }
+        } catch (err) {
+          console.warn(`Warning: Invalid record in ${fileName}`);
+        }
+      }
+    });
+
+    parser.on('error', (err) => {
+      console.error(`Error parsing ${fileName}:`, err);
+      reject(err);
+    });
+
+    parser.on('end', () => {
+      resolve({
+        ...results,
+        uniqueTracks: Array.from(results.uniqueTracks),
+        uniqueArtists: Array.from(results.uniqueArtists),
+        uniquePeriods: Array.from(results.uniquePeriods)
       });
     });
 
-    // Vérifier la taille des fichiers
-    const oversizedFiles = req.files.filter(file => file.size > 5 * 1024 * 1024);
-    if (oversizedFiles.length > 0) {
-      console.log('Oversized files detected:', oversizedFiles.map(f => f.originalname));
+    parser.write(fileContent);
+    parser.end();
+  });
+};
+
+// Fonction pour traiter un lot de fichiers
+const processBatch = async (files) => {
+  const results = [];
+  const errors = [];
+  const summary = {
+    totalRevenue: 0,
+    totalArtistRevenue: 0,
+    uniqueTracks: new Set(),
+    uniqueArtists: new Set(),
+    uniquePeriods: new Set()
+  };
+
+  for (const file of files) {
+    try {
+      console.log(`Processing ${file.originalname} (${(file.size / (1024 * 1024)).toFixed(2)}MB)`);
+      const fileContent = file.buffer.toString();
+
+      if (!fileContent.trim()) {
+        errors.push({ file: file.originalname, error: 'File is empty' });
+        continue;
+      }
+
+      const fileResults = await processFileOptimized(fileContent, file.originalname);
+      
+      // Agréger les résultats
+      results.push(...fileResults.records);
+      summary.totalRevenue += fileResults.totalRevenue;
+      summary.totalArtistRevenue += fileResults.totalArtistRevenue;
+      fileResults.uniqueTracks.forEach(track => summary.uniqueTracks.add(track));
+      fileResults.uniqueArtists.forEach(artist => summary.uniqueArtists.add(artist));
+      fileResults.uniquePeriods.forEach(period => summary.uniquePeriods.add(period));
+
+      // Libérer la mémoire
+      file.buffer = null;
+      if (global.gc) global.gc();
+      
+      console.log(`Processed ${fileResults.records.length} records from ${file.originalname}`);
+    } catch (err) {
+      console.error(`Error processing ${file.originalname}:`, err);
+      errors.push({ file: file.originalname, error: err.message });
+    }
+  }
+
+  return {
+    records: results,
+    summary: {
+      ...summary,
+      uniqueTracks: Array.from(summary.uniqueTracks),
+      uniqueArtists: Array.from(summary.uniqueArtists),
+      uniquePeriods: Array.from(summary.uniquePeriods)
+    },
+    errors
+  };
+};
+
+// Route d'analyse optimisée
+router.post('/analyze', uploadMiddleware, async (req, res) => {
+  console.log('POST /analyze called');
+  
+  try {
+    if (!req.files?.length) {
       return res.status(400).json({
-        error: 'Files too large',
-        details: `The following files exceed the 5MB limit: ${oversizedFiles.map(f => f.originalname).join(', ')}`
+        error: 'No files uploaded',
+        details: 'Veuillez sélectionner au moins un fichier CSV à analyser'
       });
     }
 
-    // Traiter chaque fichier
-    const allRecords = [];
-    const errors = [];
+    console.log(`Processing ${req.files.length} files`);
     
-    for (const file of req.files) {
-      try {
-        console.log(`Processing file: ${file.originalname}`);
-        const fileContent = file.buffer.toString();
-        if (!fileContent.trim()) {
-          console.log(`Empty file detected: ${file.originalname}`);
-          errors.push({ file: file.originalname, error: 'File is empty' });
-          continue;
-        }
+    const { records, summary, errors } = await processBatch(req.files);
 
-        // Vérifier si le fichier ressemble à un CSV
-        const firstLine = fileContent.split('\n')[0];
-        if (!firstLine.includes(',')) {
-          console.log(`Invalid CSV format detected: ${file.originalname}`);
-          errors.push({ file: file.originalname, error: 'File does not appear to be a valid CSV (no commas found)' });
-          continue;
-        }
-
-        const records = await parseCSVContent(fileContent, file.originalname);
-        console.log(`Parsed ${records.length} records from ${file.originalname}`);
-        
-        if (records.length > 0) {
-          allRecords.push(...records);
-        } else {
-          errors.push({ file: file.originalname, error: 'No valid records found in file' });
-        }
-      } catch (err) {
-        console.error(`Error processing ${file.originalname}:`, err);
-        errors.push({ file: file.originalname, error: err.message });
-      }
-    }
-
-    if (allRecords.length === 0) {
-      console.log('No valid records found in any file');
+    if (records.length === 0) {
       return res.status(400).json({
         error: 'No valid records found',
-        details: 'No valid records could be extracted from the uploaded files',
-        errors: errors
+        details: 'Aucun enregistrement valide n\'a pu être extrait des fichiers',
+        errors
       });
     }
 
-    // Initialiser les structures de données
-    const tracks = new Map();
-    const artists = new Map();
-    const periods = new Map();
-    const invalidRecords = [];
-
-    // Traiter les enregistrements
-    for (const [index, record] of allRecords.entries()) {
-      try {
-        // Extraire les données
-        const track = extractField(record, ['track_name', 'title', 'Track Title', 'Song Title']);
-        const artist = extractField(record, ['artist', 'Artist', 'Artist Name']);
-        const period = extractField(record, ['period', 'Sales Period', 'Transaction Date', 'Reporting Date', 'Operation Date']);
-        const revenue = cleanRevenueValue(extractField(record, ['revenue', 'Payable', 'Total Earned', 'Net Income'], '0'));
-
-        if (!track || !artist || !period) {
-          invalidRecords.push({
-            index: index + 1,
-            reason: 'Missing required fields',
-            found: { track, artist, period }
-          });
-          continue;
-        }
-
-        // Mettre à jour les pistes
-        const trackKey = `${track}-${artist}`;
-        if (!tracks.has(trackKey)) {
-          tracks.set(trackKey, {
-            Track: track,
-            Artist: artist,
-            TotalRevenue: 0,
-            ArtistRevenue: 0,
-            Periods: new Set(),
-            Sources: new Set()
-          });
-        }
-        const trackData = tracks.get(trackKey);
-        trackData.TotalRevenue += revenue;
-        trackData.ArtistRevenue += revenue * 0.7;
-        trackData.Periods.add(period);
-
-        // Mettre à jour les artistes
-        if (!artists.has(artist)) {
-          artists.set(artist, {
-            Artist: artist,
-            TotalRevenue: 0,
-            ArtistRevenue: 0,
-            TrackCount: new Set(),
-            Periods: new Set()
-          });
-        }
-        const artistData = artists.get(artist);
-        artistData.TotalRevenue += revenue;
-        artistData.ArtistRevenue += revenue * 0.7;
-        artistData.TrackCount.add(track);
-        artistData.Periods.add(period);
-
-        // Mettre à jour les périodes
-        if (!periods.has(period)) {
-          periods.set(period, {
-            Period: period,
-            TotalRevenue: 0,
-            ArtistRevenue: 0,
-            TrackCount: new Set(),
-            ArtistCount: new Set()
-          });
-        }
-        const periodData = periods.get(period);
-        periodData.TotalRevenue += revenue;
-        periodData.ArtistRevenue += revenue * 0.7;
-        periodData.TrackCount.add(track);
-        periodData.ArtistCount.add(artist);
-      } catch (err) {
-        console.warn('Error processing record:', err.message);
-        invalidRecords.push({
-          index: index + 1,
-          reason: err.message
-        });
-      }
-    }
-
-    // Vérifier si nous avons des données valides
-    if (tracks.size === 0) {
-      return res.status(400).json({
-        error: 'No valid data found',
-        details: 'Could not extract any valid track data from the records',
-        errors: errors,
-        invalidRecords: invalidRecords
-      });
-    }
-
-    // Préparer les résultats
-    const results = {
-      trackSummary: Array.from(tracks.values()).map(data => ({
-        Track: data.Track,
-        Artist: data.Artist,
-        TotalRevenue: `${data.TotalRevenue.toFixed(2)} EUR`,
-        ArtistRevenue: `${data.ArtistRevenue.toFixed(2)} EUR`,
-        Periods: Array.from(data.Periods).sort().join(', ')
-      })),
-      artistSummary: Array.from(artists.values()).map(data => ({
-        Artist: data.Artist,
-        TrackCount: data.TrackCount.size,
-        TotalRevenue: `${data.TotalRevenue.toFixed(2)} EUR`,
-        ArtistRevenue: `${data.ArtistRevenue.toFixed(2)} EUR`,
-        Periods: Array.from(data.Periods).sort().join(', ')
-      })),
-      periodSummary: Array.from(periods.values()).map(data => ({
-        Period: data.Period,
-        TrackCount: data.TrackCount.size,
-        ArtistCount: data.ArtistCount.size,
-        TotalRevenue: `${data.TotalRevenue.toFixed(2)} EUR`,
-        ArtistRevenue: `${data.ArtistRevenue.toFixed(2)} EUR`
-      })),
+    const response = {
       summary: {
-        totalRecords: allRecords.length,
-        validRecords: allRecords.length - invalidRecords.length,
-        invalidRecords: invalidRecords.length,
-        uniqueTracks: tracks.size,
-        uniqueArtists: artists.size,
-        uniquePeriods: periods.size
+        totalFiles: req.files.length,
+        totalRecords: records.length,
+        totalRevenue: summary.totalRevenue.toFixed(2) + ' EUR',
+        totalArtistRevenue: summary.totalArtistRevenue.toFixed(2) + ' EUR',
+        uniqueTracks: summary.uniqueTracks.length,
+        uniqueArtists: summary.uniqueArtists.length,
+        uniquePeriods: summary.uniquePeriods.length
       },
-      processedFiles: req.files.map(f => ({ 
+      processedFiles: req.files.map(f => ({
         name: f.originalname,
-        size: f.size
-      })),
-      errors: errors.length ? errors : undefined,
-      invalidRecords: invalidRecords.length ? invalidRecords : undefined
+        size: (f.size / (1024 * 1024)).toFixed(2)
+      }))
     };
 
-    // Trier les résultats
-    results.trackSummary.sort((a, b) => parseFloat(b.TotalRevenue) - parseFloat(a.TotalRevenue));
-    results.artistSummary.sort((a, b) => parseFloat(b.TotalRevenue) - parseFloat(a.TotalRevenue));
-    results.periodSummary.sort((a, b) => a.Period.localeCompare(b.Period));
-
-    res.json(results);
+    res.json(response);
   } catch (error) {
     console.error('Fatal error:', error);
     res.status(500).json({
       error: 'Failed to process files',
-      details: error.message,
-      type: error.name,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      details: error.message
     });
   }
 });
