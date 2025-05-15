@@ -121,20 +121,40 @@ function App() {
 
   useEffect(() => {
     // Load templates on mount
-    console.log('Fetching templates from:', `${config.API_URL}/templates`);
-    fetch(`${config.API_URL}/templates`)
-      .then(res => {
-        console.log('Templates response:', res.status);
-        return res.json();
-      })
-      .then(data => {
+    const loadTemplates = async () => {
+      try {
+        console.log('Fetching templates from:', `${config.API_URL}/templates`);
+        const response = await fetch(`${config.API_URL}/templates`);
+        
+        if (!response.ok) {
+          let errorMessage = 'Failed to load templates';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorData.error || `Server error: ${response.status}`;
+          } catch (e) {
+            console.error('Error parsing error response:', e);
+            errorMessage = await response.text();
+          }
+          throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
         console.log('Received templates:', data);
+        
+        if (!Array.isArray(data)) {
+          throw new Error('Invalid templates data format received');
+        }
+        
         setTemplates(data);
-      })
-      .catch(error => {
-        console.error('Error loading templates:', error);
+        setError(null);
+      } catch (err) {
+        console.error('Error loading templates:', err);
+        setError(`Failed to load templates: ${err.message}`);
         setTemplates([]);
-      });
+      }
+    };
+
+    loadTemplates();
   }, []);
 
   const onDrop = (acceptedFiles) => {
@@ -268,35 +288,55 @@ function App() {
 
   const handleSaveTemplate = async (template) => {
     try {
+      if (!template || !template.name) {
+        throw new Error('Template name is required');
+      }
+
+      // Validate required fields
+      const requiredFields = ['track_column', 'artist_column', 'revenue_column', 'date_column'];
+      const missingFields = requiredFields.filter(field => !template[field]);
+      if (missingFields.length > 0) {
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+      }
+
       console.log('Saving template:', template);
-      const response = await fetch(`${config.API_URL}/templates`, {
+      const response = await fetch(`${config.API_URL}${config.TEMPLATE_ENDPOINTS.create}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
+        headers: config.DEFAULT_HEADERS,
         body: JSON.stringify(template),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save template');
+        let errorMessage = 'Failed to save template';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || `Server error: ${response.status}`;
+        } catch (e) {
+          console.error('Error parsing error response:', e);
+          errorMessage = await response.text();
+        }
+        throw new Error(errorMessage);
       }
 
       const savedTemplate = await response.json();
       console.log('Template saved successfully:', savedTemplate);
       
-      // Update templates list
+      // Update templates list with type checking
       setTemplates(prev => {
+        if (!Array.isArray(prev)) {
+          console.warn('Previous templates state was not an array, resetting to empty array');
+          return [savedTemplate];
+        }
         const updated = prev.filter(t => t.name !== template.name);
-        return [...updated, { name: template.name, ...savedTemplate }];
+        return [...updated, savedTemplate];
       });
       
       setTemplateDialogOpen(false);
       setError(null);
     } catch (err) {
       console.error('Error saving template:', err);
-      setError(err.message || 'Failed to save template. Please try again.');
+      setError(`Failed to save template: ${err.message}`);
+      // Ne pas fermer le dialog en cas d'erreur pour permettre à l'utilisateur de corriger
     }
   };
 
