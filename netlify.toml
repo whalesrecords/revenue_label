@@ -1,6 +1,6 @@
 [build]
   base = "client"
-  command = "CI=false npm install && npm run build"
+  command = "npm ci && npm run build"
   publish = "build"
 
 [[redirects]]
@@ -12,4 +12,7 @@
 [build.environment]
   NODE_VERSION = "18"
   NPM_VERSION = "9"
-  CI = "false" 
+  CI = "false"
+
+[functions]
+  directory = "server/functions" 
