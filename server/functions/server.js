@@ -227,37 +227,98 @@ router.post('/read-headers', upload.single('file'), (req, res) => {
   }
 });
 
-router.post('/analyze', upload.single('file'), async (req, res) => {
+router.post('/analyze', upload.array('files'), async (req, res) => {
   console.log('POST /analyze called');
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'No files uploaded' });
   }
 
   try {
-    const fileContent = req.file.buffer.toString();
-    const records = [];
+    console.log(`Processing ${req.files.length} files...`);
+    const allRecords = [];
     
-    await new Promise((resolve, reject) => {
-      parse(fileContent, {
-        columns: true,
-        skip_empty_lines: true,
-        trim: true
-      })
-      .on('data', (record) => records.push(record))
-      .on('error', reject)
-      .on('end', resolve);
+    // Process each file
+    for (const file of req.files) {
+      const fileContent = file.buffer.toString();
+      const fileRecords = await new Promise((resolve, reject) => {
+        const records = [];
+        parse(fileContent, {
+          columns: true,
+          skip_empty_lines: true,
+          trim: true
+        })
+        .on('data', (record) => records.push(record))
+        .on('error', reject)
+        .on('end', () => resolve(records));
+      });
+      allRecords.push(...fileRecords);
+    }
+
+    // Process records and generate summaries
+    const trackSummary = {};
+    const artistSummary = {};
+    const periodSummary = {};
+
+    // Process each record
+    allRecords.forEach(record => {
+      // Add processing logic here based on the template structure
+      // This is a placeholder for the actual processing logic
+      const trackName = record.track_name || record.title || '';
+      const artist = record.artist || '';
+      const revenue = cleanRevenueValue(record.revenue || 0);
+      const period = record.period || '';
+
+      // Update track summary
+      if (trackName) {
+        if (!trackSummary[trackName]) {
+          trackSummary[trackName] = { revenue: 0, count: 0 };
+        }
+        trackSummary[trackName].revenue += revenue;
+        trackSummary[trackName].count++;
+      }
+
+      // Update artist summary
+      if (artist) {
+        if (!artistSummary[artist]) {
+          artistSummary[artist] = { revenue: 0, tracks: new Set() };
+        }
+        artistSummary[artist].revenue += revenue;
+        if (trackName) {
+          artistSummary[artist].tracks.add(trackName);
+        }
+      }
+
+      // Update period summary
+      if (period) {
+        if (!periodSummary[period]) {
+          periodSummary[period] = { revenue: 0, tracks: new Set() };
+        }
+        periodSummary[period].revenue += revenue;
+        if (trackName) {
+          periodSummary[period].tracks.add(trackName);
+        }
+      }
+    });
+
+    // Convert Set objects to arrays for JSON serialization
+    Object.values(artistSummary).forEach(summary => {
+      summary.tracks = Array.from(summary.tracks);
+    });
+    Object.values(periodSummary).forEach(summary => {
+      summary.tracks = Array.from(summary.tracks);
     });
 
     const results = {
-      trackSummary: {},
-      artistSummary: {},
-      periodSummary: {}
+      trackSummary,
+      artistSummary,
+      periodSummary
     };
 
+    console.log('Analysis complete');
     res.json(results);
   } catch (error) {
-    console.error('Error processing file:', error);
-    res.status(500).json({ error: 'Failed to process file' });
+    console.error('Error processing files:', error);
+    res.status(500).json({ error: 'Failed to process files' });
   }
 });
 

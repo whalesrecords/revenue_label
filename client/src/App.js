@@ -157,72 +157,27 @@ function App() {
     setAnalysisResults(null);
 
     try {
-      // 1. Upload des fichiers
       const formData = new FormData();
       files.forEach(file => {
         formData.append('files', file);
       });
 
-      console.log('Uploading files...');
-      const uploadResponse = await fetch(`${config.API_URL}/analyze/upload`, {
+      console.log('Analyzing files...');
+      const response = await fetch(`${config.API_URL}/analyze`, {
         method: 'POST',
         body: formData
       });
 
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload files');
+      if (!response.ok) {
+        throw new Error('Failed to analyze files');
       }
 
-      const { fileIds } = await uploadResponse.json();
-      console.log('Files uploaded, IDs:', fileIds);
-
-      // 2. Démarrer le streaming SSE
-      const eventSource = new EventSource(
-        `${config.API_URL}/analyze/stream?fileIds=${fileIds.join(',')}`
-      );
-
-      console.log('Starting SSE connection...');
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('Received SSE event:', data);
-
-          switch (data.type) {
-            case 'analysis_complete':
-              console.log('Setting analysis results:', data.results);
-              setAnalysisResults(data.results);
-              setTabIndex(1); // Switch to results tab
-              break;
-
-            case 'processing_complete':
-              setLoading(false);
-              eventSource.close();
-              break;
-
-            case 'error':
-              setError(data.message);
-              setLoading(false);
-              eventSource.close();
-              break;
-
-            default:
-              console.log('Unknown event type:', data.type);
-          }
-        } catch (err) {
-          console.error('Error parsing server message:', err, event.data);
-          setError('Error processing server response');
-          setLoading(false);
-          eventSource.close();
-        }
-      };
-
-      eventSource.onerror = (error) => {
-        console.error('EventSource error:', error);
-        setError('Connection error');
-        setLoading(false);
-        eventSource.close();
-      };
-
+      const results = await response.json();
+      console.log('Analysis results:', results);
+      
+      setAnalysisResults(results);
+      setTabIndex(1); // Switch to results tab
+      setLoading(false);
     } catch (err) {
       console.error('Error analyzing files:', err);
       setError(err.message || 'Error analyzing files');
