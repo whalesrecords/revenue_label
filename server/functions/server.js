@@ -268,9 +268,36 @@ router.post('/analyze', upload.array('files'), async (req, res) => {
   console.log('POST /analyze called');
   
   try {
+    // Log request details
+    console.log('Request files:', req.files?.length);
+    console.log('Request body:', req.body);
+    
     // Vérifier les fichiers
     if (!req.files?.length) {
-      return res.status(400).json({ error: 'No files uploaded' });
+      console.log('No files uploaded');
+      return res.status(400).json({
+        error: 'No files uploaded',
+        details: 'Please select at least one CSV file to analyze'
+      });
+    }
+
+    // Log file details
+    req.files.forEach((file, index) => {
+      console.log(`File ${index + 1}:`, {
+        name: file.originalname,
+        size: file.size,
+        mimetype: file.mimetype
+      });
+    });
+
+    // Vérifier la taille des fichiers
+    const oversizedFiles = req.files.filter(file => file.size > 5 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      console.log('Oversized files detected:', oversizedFiles.map(f => f.originalname));
+      return res.status(400).json({
+        error: 'Files too large',
+        details: `The following files exceed the 5MB limit: ${oversizedFiles.map(f => f.originalname).join(', ')}`
+      });
     }
 
     // Traiter chaque fichier
@@ -279,27 +306,42 @@ router.post('/analyze', upload.array('files'), async (req, res) => {
     
     for (const file of req.files) {
       try {
+        console.log(`Processing file: ${file.originalname}`);
         const fileContent = file.buffer.toString();
         if (!fileContent.trim()) {
+          console.log(`Empty file detected: ${file.originalname}`);
           errors.push({ file: file.originalname, error: 'File is empty' });
           continue;
         }
 
+        // Vérifier si le fichier ressemble à un CSV
+        const firstLine = fileContent.split('\n')[0];
+        if (!firstLine.includes(',')) {
+          console.log(`Invalid CSV format detected: ${file.originalname}`);
+          errors.push({ file: file.originalname, error: 'File does not appear to be a valid CSV (no commas found)' });
+          continue;
+        }
+
         const records = await parseCSVContent(fileContent, file.originalname);
+        console.log(`Parsed ${records.length} records from ${file.originalname}`);
+        
         if (records.length > 0) {
           allRecords.push(...records);
         } else {
           errors.push({ file: file.originalname, error: 'No valid records found in file' });
         }
       } catch (err) {
+        console.error(`Error processing ${file.originalname}:`, err);
         errors.push({ file: file.originalname, error: err.message });
       }
     }
 
     if (allRecords.length === 0) {
+      console.log('No valid records found in any file');
       return res.status(400).json({
         error: 'No valid records found',
-        details: errors
+        details: 'No valid records could be extracted from the uploaded files',
+        errors: errors
       });
     }
 
@@ -307,9 +349,10 @@ router.post('/analyze', upload.array('files'), async (req, res) => {
     const tracks = new Map();
     const artists = new Map();
     const periods = new Map();
+    const invalidRecords = [];
 
     // Traiter les enregistrements
-    for (const record of allRecords) {
+    for (const [index, record] of allRecords.entries()) {
       try {
         // Extraire les données
         const track = extractField(record, ['track_name', 'title', 'Track Title', 'Song Title']);
@@ -317,7 +360,14 @@ router.post('/analyze', upload.array('files'), async (req, res) => {
         const period = extractField(record, ['period', 'Sales Period', 'Transaction Date', 'Reporting Date', 'Operation Date']);
         const revenue = cleanRevenueValue(extractField(record, ['revenue', 'Payable', 'Total Earned', 'Net Income'], '0'));
 
-        if (!track || !artist || !period) continue;
+        if (!track || !artist || !period) {
+          invalidRecords.push({
+            index: index + 1,
+            reason: 'Missing required fields',
+            found: { track, artist, period }
+          });
+          continue;
+        }
 
         // Mettre à jour les pistes
         const trackKey = `${track}-${artist}`;
@@ -369,7 +419,21 @@ router.post('/analyze', upload.array('files'), async (req, res) => {
         periodData.ArtistCount.add(artist);
       } catch (err) {
         console.warn('Error processing record:', err.message);
+        invalidRecords.push({
+          index: index + 1,
+          reason: err.message
+        });
       }
+    }
+
+    // Vérifier si nous avons des données valides
+    if (tracks.size === 0) {
+      return res.status(400).json({
+        error: 'No valid data found',
+        details: 'Could not extract any valid track data from the records',
+        errors: errors,
+        invalidRecords: invalidRecords
+      });
     }
 
     // Préparer les résultats
@@ -395,9 +459,20 @@ router.post('/analyze', upload.array('files'), async (req, res) => {
         TotalRevenue: `${data.TotalRevenue.toFixed(2)} EUR`,
         ArtistRevenue: `${data.ArtistRevenue.toFixed(2)} EUR`
       })),
-      totalRecords: allRecords.length,
-      processedFiles: req.files.map(f => f.originalname),
-      errors: errors.length ? errors : undefined
+      summary: {
+        totalRecords: allRecords.length,
+        validRecords: allRecords.length - invalidRecords.length,
+        invalidRecords: invalidRecords.length,
+        uniqueTracks: tracks.size,
+        uniqueArtists: artists.size,
+        uniquePeriods: periods.size
+      },
+      processedFiles: req.files.map(f => ({ 
+        name: f.originalname,
+        size: f.size
+      })),
+      errors: errors.length ? errors : undefined,
+      invalidRecords: invalidRecords.length ? invalidRecords : undefined
     };
 
     // Trier les résultats
@@ -410,7 +485,9 @@ router.post('/analyze', upload.array('files'), async (req, res) => {
     console.error('Fatal error:', error);
     res.status(500).json({
       error: 'Failed to process files',
-      details: error.message
+      details: error.message,
+      type: error.name,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
