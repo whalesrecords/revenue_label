@@ -38,17 +38,17 @@ app.use((req, res, next) => {
 });
 
 // Configuration des limites Express
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Configuration multer avec gestion d'erreur
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit par fichier
-    files: 10, // Maximum 10 fichiers
-    fieldSize: 50 * 1024 * 1024
+    fileSize: 10 * 1024 * 1024, // 10MB limit par fichier
+    files: 5, // Maximum 5 fichiers
+    fieldSize: 10 * 1024 * 1024
   }
 }).array('files');
 
@@ -59,13 +59,13 @@ const uploadMiddleware = (req, res, next) => {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({
           error: 'File too large',
-          details: `Le fichier dépasse la limite de 50MB`
+          details: `Le fichier dépasse la limite de 10MB`
         });
       }
       if (err.code === 'LIMIT_FILE_COUNT') {
         return res.status(400).json({
           error: 'Too many files',
-          details: 'Maximum 10 fichiers peuvent être uploadés à la fois'
+          details: 'Maximum 5 fichiers peuvent être uploadés à la fois'
         });
       }
       return res.status(400).json({
@@ -627,6 +627,28 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Export the serverless handler
-module.exports = app;
-module.exports.handler = serverless(app); 
+// Export the serverless handler with configuration
+const handler = serverless(app, {
+  binary: ['application/octet-stream'],
+  request: {
+    timeout: 29000, // 29 seconds (just under Netlify's 30s limit)
+  }
+});
+
+// Export the handler with proper error handling
+exports.handler = async (event, context) => {
+  try {
+    // Set the context callbackWaitsForEmptyEventLoop to false
+    context.callbackWaitsForEmptyEventLoop = false;
+    return await handler(event, context);
+  } catch (error) {
+    console.error('Handler error:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Internal Server Error',
+        message: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred'
+      })
+    };
+  }
+}; 

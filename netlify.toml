@@ -9,6 +9,9 @@
   node_bundler = "esbuild"
   included_files = ["server/functions/package.json"]
   external_node_modules = ["express", "serverless-http", "multer", "cors", "csv-parse", "csv-stringify"]
+  timeout = "30s"
+  [functions.server]
+    maxDuration = 30
 
 [[headers]]
   for = "/*"
