@@ -19,7 +19,7 @@
     Access-Control-Max-Age = "86400"
 
 [[redirects]]
-  from = "/api/*"
+  from = "/.netlify/functions/server/*"
   to = "/.netlify/functions/server/:splat"
   status = 200
   force = true
@@ -37,7 +37,6 @@
   GENERATE_SOURCEMAP = "false"
   NODE_ENV = "production"
   NODE_OPTIONS = "--max-old-space-size=3072"
-  REACT_APP_API_URL = "/api"
 
 [dev]
   framework = "#custom"

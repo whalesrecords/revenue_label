@@ -1,7 +1,8 @@
 const getApiUrl = () => {
-  const url = process.env.REACT_APP_API_URL || '/api';
-  // Ensure the URL doesn't contain /.netlify
-  return url.includes('/.netlify') ? '/api' : url;
+  if (process.env.NODE_ENV === 'development') {
+    return process.env.REACT_APP_API_URL || 'http://localhost:8888/.netlify/functions/server';
+  }
+  return '/.netlify/functions/server';
 };
 
 const config = {

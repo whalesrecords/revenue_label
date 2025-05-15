@@ -107,30 +107,6 @@ const getQuarter = (period) => {
   return `${year}-Q${quarterNum}`;
 };
 
-// Helper function to group data by quarters
-const groupByQuarters = (data) => {
-  const grouped = data.reduce((acc, item) => {
-    const quarter = getQuarter(item.Period);
-    if (!acc[quarter]) {
-      acc[quarter] = {
-        ...item,
-        Period: quarter,
-        TotalRevenue: 0,
-        ArtistRevenue: 0
-      };
-    }
-    acc[quarter].TotalRevenue += parseFloat(item.TotalRevenue.split(' ')[0]);
-    acc[quarter].ArtistRevenue += parseFloat(item.ArtistRevenue.split(' ')[0]);
-    return acc;
-  }, {});
-
-  return Object.values(grouped).map(item => ({
-    ...item,
-    TotalRevenue: `${item.TotalRevenue.toFixed(2)} ${item.TotalRevenue.split(' ')[1] || 'EUR'}`,
-    ArtistRevenue: `${item.ArtistRevenue.toFixed(2)} ${item.ArtistRevenue.split(' ')[1] || 'EUR'}`
-  }));
-};
-
 // Helper function to format filename
 const formatFileName = (artist, period) => {
   const quarter = getQuarter(period);
@@ -426,6 +402,16 @@ function ResultsTable({ data }) {
     </TableContainer>
   );
 
+  const formatRevenue = (value) => {
+    if (typeof value === 'string') {
+      return value;
+    }
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR'
+    }).format(value);
+  };
+
   if (!data) {
     return <Box p={2}>No data to display</Box>;
   }
@@ -457,6 +443,74 @@ function ResultsTable({ data }) {
           fullWidth
         />
       </Box>
+
+      {data && (data.summary || data.processedFiles) && (
+        <TableContainer component={Paper} sx={{ mb: 4 }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Métrique</TableCell>
+                <TableCell align="right">Valeur</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {data.summary && (
+                <>
+                  <TableRow>
+                    <TableCell>Nombre de fichiers traités</TableCell>
+                    <TableCell align="right">{data.summary.totalFiles}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Nombre total d'enregistrements</TableCell>
+                    <TableCell align="right">{data.summary.totalRecords}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Revenu total</TableCell>
+                    <TableCell align="right">{formatRevenue(data.summary.totalRevenue)}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Revenu des artistes</TableCell>
+                    <TableCell align="right">{formatRevenue(data.summary.totalArtistRevenue)}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Nombre de titres uniques</TableCell>
+                    <TableCell align="right">{data.summary.uniqueTracks}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Nombre d'artistes uniques</TableCell>
+                    <TableCell align="right">{data.summary.uniqueArtists}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Nombre de périodes uniques</TableCell>
+                    <TableCell align="right">{data.summary.uniquePeriods}</TableCell>
+                  </TableRow>
+                </>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
+      {data && data.processedFiles && data.processedFiles.length > 0 && (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Nom du fichier</TableCell>
+                <TableCell align="right">Taille</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {data.processedFiles.map((file, index) => (
+                <TableRow key={index}>
+                  <TableCell>{file.name}</TableCell>
+                  <TableCell align="right">{file.size} MB</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       {currentTab === 0 && renderTrackSummary()}
       {currentTab === 1 && renderArtistSummary()}

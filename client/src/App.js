@@ -116,7 +116,6 @@ function App() {
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
-  const [mergedResults, setMergedResults] = useState(null);
   const [processingStatus, setProcessingStatus] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
@@ -219,7 +218,6 @@ function App() {
     setLoading(true);
     setError(null);
     setAnalysisResults(null);
-    setMergedResults(null);
     
     try {
       const batchSize = 10;
@@ -271,8 +269,7 @@ function App() {
           
           // Mettre à jour les résultats partiels
           if (batchResults.length > 0) {
-            const partialMerged = mergeBatchResults(batchResults);
-            setMergedResults(partialMerged);
+            setAnalysisResults(mergeBatchResults(batchResults));
           }
         } catch (err) {
           console.error(`Error processing batch ${i + 1}:`, err);

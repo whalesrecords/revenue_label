@@ -102,6 +102,9 @@ router.use(validateRequest);
 // Base path for all routes
 app.use('/', router);
 
+// Monter le router sur /api
+app.use('/.netlify/functions/server', router);
+
 // Predefined templates
 const predefinedTemplates = {
   "Tunecore": {
@@ -624,5 +627,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Export the serverless function
+// Export the serverless handler
+module.exports = app;
 module.exports.handler = serverless(app); 
