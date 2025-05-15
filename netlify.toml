@@ -9,18 +9,18 @@
   node_bundler = "esbuild"
   included_files = ["server/functions/package.json"]
   external_node_modules = ["express", "serverless-http", "multer", "cors", "csv-parse", "csv-stringify"]
+  memory_limit = "1024"
+  timeout = "30"
+
+[functions.server]
+  memory_limit = "1024"
+  timeout = "30"
 
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/server/:splat"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/.netlify/functions/server/*"
   to = "/.netlify/functions/server/:splat"
   status = 200
   force = true
@@ -35,4 +35,12 @@
   NODE_VERSION = "18"
   NPM_VERSION = "9"
   CI = "false"
-  GENERATE_SOURCEMAP = "false" 
+  GENERATE_SOURCEMAP = "false"
+  NODE_ENV = "production"
+
+[dev]
+  framework = "#custom"
+  targetPort = 3000
+  port = 8888
+  command = "npm run start"
+  publish = "client/build" 
