@@ -11,7 +11,7 @@ const { Transform } = require('stream');
 const app = express();
 const router = express.Router();
 
-// Configuration multer pour le stockage temporaire
+// Configuration multer pour le stockage en mémoire
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
@@ -31,17 +31,121 @@ app.use(cors({
 app.use(express.json());
 app.use('/.netlify/functions/server', router);
 
-// Vos routes existantes, adaptées pour Netlify Functions
+// Store templates in memory
+let templates = {};
+
+// Helper functions
+const cleanRevenueValue = (value) => {
+  if (value === null || value === undefined || value === '') return 0.0;
+  try {
+    if (typeof value === 'number') return parseFloat(value);
+    let valueStr = String(value)
+      .trim()
+      .replace(/[€$]/g, '')
+      .replace(/\s/g, '')
+      .replace(/,/g, '.')
+      .replace(/[^0-9.-]/g, '');
+    if (value.includes('(') && value.includes(')')) valueStr = '-' + valueStr;
+    const result = parseFloat(valueStr);
+    return isNaN(result) ? 0.0 : result;
+  } catch (error) {
+    console.error('Error cleaning revenue value:', error);
+    return 0.0;
+  }
+};
+
+// Routes
 router.get('/templates', (req, res) => {
-  // Implémenter la logique de récupération des templates
-  res.json({ templates: {} });
+  res.json(templates);
 });
 
-router.post('/upload', upload.single('file'), (req, res) => {
-  // Implémenter la logique de traitement des fichiers
-  res.json({ message: 'File processed' });
+router.post('/templates', express.json(), (req, res) => {
+  try {
+    const template = req.body;
+    const requiredFields = ['name', 'track_column', 'artist_column', 'upc_column', 'revenue_column', 'date_column', 'currency'];
+    const missingFields = requiredFields.filter(field => !template[field]);
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({ 
+        error: 'Invalid template format', 
+        missingFields 
+      });
+    }
+
+    templates[template.name] = {
+      track_column: template.track_column,
+      artist_column: template.artist_column,
+      upc_column: template.upc_column,
+      revenue_column: template.revenue_column,
+      date_column: template.date_column,
+      currency: template.currency,
+      source: template.name
+    };
+
+    res.json(templates[template.name]);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save template' });
+  }
 });
 
-// Autres routes...
+router.post('/analyze', upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  try {
+    const fileContent = req.file.buffer.toString();
+    const records = [];
+    
+    await new Promise((resolve, reject) => {
+      parse(fileContent, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true
+      })
+      .on('data', (record) => records.push(record))
+      .on('error', reject)
+      .on('end', resolve);
+    });
+
+    const results = {
+      trackSummary: {},
+      artistSummary: {},
+      periodSummary: {}
+    };
+
+    // Process records...
+    // (Ajoutez ici la logique de traitement des enregistrements)
+
+    res.json(results);
+  } catch (error) {
+    console.error('Error processing file:', error);
+    res.status(500).json({ error: 'Failed to process file' });
+  }
+});
+
+router.post('/read-headers', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  try {
+    const fileContent = req.file.buffer.toString();
+    parse(fileContent, {
+      to: 1,
+      skip_empty_lines: true
+    }, (err, records) => {
+      if (err) {
+        console.error('Error reading CSV headers:', err);
+        return res.status(500).json({ error: 'Failed to read CSV headers' });
+      }
+      const headers = records[0] || [];
+      res.json({ headers });
+    });
+  } catch (error) {
+    console.error('Error reading file:', error);
+    res.status(500).json({ error: 'Failed to read file' });
+  }
+});
 
 module.exports.handler = serverless(app); 
