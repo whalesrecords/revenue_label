@@ -19,13 +19,6 @@
     Access-Control-Max-Age = "86400"
 
 [[redirects]]
-  from = "/.netlify/functions/server/*"
-  to = "/.netlify/functions/server/:splat"
-  status = 200
-  force = true
-  headers = {Access-Control-Allow-Origin = "*"}
-
-[[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/server/:splat"
   status = 200

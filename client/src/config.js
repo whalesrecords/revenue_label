@@ -1,5 +1,5 @@
 const config = {
-  API_URL: process.env.REACT_APP_API_URL || '/.netlify/functions/server',
+  API_URL: process.env.REACT_APP_API_URL || '/api',
   TEMPLATE_ENDPOINTS: {
     create: '/templates',
     list: '/templates',

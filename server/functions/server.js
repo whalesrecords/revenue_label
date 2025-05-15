@@ -104,7 +104,7 @@ const validateRequest = (req, res, next) => {
 router.use(validateRequest);
 
 // Base path for all routes
-app.use('/.netlify/functions/server', router);
+app.use('/', router);
 
 // Predefined templates
 const predefinedTemplates = {
