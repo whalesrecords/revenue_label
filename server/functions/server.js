@@ -260,17 +260,21 @@ app.post('/analyze', upload.single('file'), async (req, res) => {
 
 // Export the serverless handler
 const handler = serverless(app);
-module.exports.handler = async (event, context) => {
-  // Log the incoming request
-  console.log('Incoming request:', {
+
+// Export handler function
+exports.handler = async (event, context) => {
+  // Log incoming request
+  console.log('Request:', {
     path: event.path,
     httpMethod: event.httpMethod,
-    headers: event.headers
+    headers: event.headers,
+    body: event.body
   });
 
+  // Handle the request
   const result = await handler(event, context);
-  
-  // Log the response
+
+  // Log response
   console.log('Response:', {
     statusCode: result.statusCode,
     headers: result.headers
