@@ -27,6 +27,7 @@ import { createTheme, ThemeProvider } from '@mui/material/styles';
 import ResultsTable from './components/ResultsTable';
 import ChartView from './components/ChartView';
 import TemplateDialog from './components/TemplateDialog';
+import config from './config';
 
 const theme = createTheme({
   palette: {
@@ -118,7 +119,7 @@ function App() {
 
   useEffect(() => {
     // Load templates on mount
-    fetch('http://localhost:5001/api/templates')
+    fetch(`${config.API_URL}/templates`)
       .then(res => res.json())
       .then(data => {
         const templateList = Object.entries(data).map(([name, template]) => ({
@@ -162,7 +163,7 @@ function App() {
       });
 
       console.log('Uploading files...');
-      const uploadResponse = await fetch('http://localhost:5001/api/analyze/upload', {
+      const uploadResponse = await fetch(`${config.API_URL}/analyze/upload`, {
         method: 'POST',
         body: formData
       });
@@ -176,7 +177,7 @@ function App() {
 
       // 2. Démarrer le streaming SSE
       const eventSource = new EventSource(
-        `http://localhost:5001/api/analyze/stream?fileIds=${fileIds.join(',')}`
+        `${config.API_URL}/analyze/stream?fileIds=${fileIds.join(',')}`
       );
 
       console.log('Starting SSE connection...');
@@ -231,12 +232,11 @@ function App() {
   const handleSaveTemplate = async (template) => {
     try {
       console.log('Saving template:', template);
-      const response = await fetch('http://localhost:5001/api/templates', {
+      const response = await fetch(`${config.API_URL}/templates`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': 'http://localhost:3000'
+          'Accept': 'application/json'
         },
         body: JSON.stringify(template),
       });
