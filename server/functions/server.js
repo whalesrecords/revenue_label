@@ -107,6 +107,7 @@ const predefinedTemplates = {
 
 // Initialize templates with predefined ones
 let templates = { ...predefinedTemplates };
+console.log('Templates initialized:', Object.keys(templates));
 
 // Helper functions
 const cleanRevenueValue = (value) => {
@@ -130,7 +131,13 @@ const cleanRevenueValue = (value) => {
 
 // Routes
 router.get('/templates', (req, res) => {
-  res.json(templates);
+  console.log('GET /templates called');
+  console.log('Available templates:', Object.keys(templates));
+  const templatesList = Object.entries(templates).map(([name, template]) => ({
+    name,
+    ...template
+  }));
+  res.json(templatesList);
 });
 
 router.post('/templates', express.json(), (req, res) => {

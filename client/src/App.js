@@ -119,14 +119,15 @@ function App() {
 
   useEffect(() => {
     // Load templates on mount
+    console.log('Fetching templates from:', `${config.API_URL}/templates`);
     fetch(`${config.API_URL}/templates`)
-      .then(res => res.json())
+      .then(res => {
+        console.log('Templates response:', res.status);
+        return res.json();
+      })
       .then(data => {
-        const templateList = Object.entries(data).map(([name, template]) => ({
-          name: name,
-          ...template
-        }));
-        setTemplates(templateList);
+        console.log('Received templates:', data);
+        setTemplates(data);
       })
       .catch(error => {
         console.error('Error loading templates:', error);
@@ -346,9 +347,13 @@ function App() {
                     <MenuItem value="">
                       <em>None</em>
                     </MenuItem>
-                    {templates.map(template => (
+                    {Array.isArray(templates) ? templates.map(template => (
                       <MenuItem key={template.name} value={template.name}>
                         {template.name}
+                      </MenuItem>
+                    )) : Object.keys(templates).map(name => (
+                      <MenuItem key={name} value={name}>
+                        {name}
                       </MenuItem>
                     ))}
                   </Select>
