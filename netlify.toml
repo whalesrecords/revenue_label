@@ -9,12 +9,10 @@
   node_bundler = "esbuild"
   included_files = ["server/functions/package.json"]
   external_node_modules = ["express", "serverless-http", "multer", "cors", "csv-parse", "csv-stringify"]
-  memory_limit = "1024"
-  timeout = "30"
 
 [functions.server]
-  memory_limit = "1024"
-  timeout = "30"
+  included_files = ["server/functions/package.json"]
+  external_node_modules = ["express", "serverless-http", "multer", "cors", "csv-parse", "csv-stringify"]
 
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
