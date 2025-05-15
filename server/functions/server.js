@@ -315,14 +315,36 @@ router.get('/', (req, res) => {
   res.json({ status: 'success', message: 'API is working' });
 });
 
-router.get('/templates', (req, res) => {
+router.get('/templates', async (req, res) => {
   try {
     console.log('GET /templates called');
+    console.log('Request headers:', req.headers);
     console.log('Available templates:', Object.keys(templates));
-    res.json(Object.entries(templates).map(([name, template]) => ({
+
+    // Ensure templates is properly initialized
+    if (!templates || typeof templates !== 'object') {
+      console.warn('Templates not properly initialized, reinitializing...');
+      templates = { ...predefinedTemplates };
+      
+      // Try to load from file
+      try {
+        if (fs.existsSync(templatesFile)) {
+          const savedTemplates = JSON.parse(fs.readFileSync(templatesFile, 'utf8'));
+          templates = { ...templates, ...savedTemplates };
+        }
+      } catch (loadError) {
+        console.error('Error loading templates from file:', loadError);
+      }
+    }
+
+    // Convert templates to array format
+    const templateArray = Object.entries(templates).map(([name, template]) => ({
       name,
       ...template
-    })));
+    }));
+
+    console.log('Sending templates response:', templateArray);
+    res.json(templateArray);
   } catch (error) {
     console.error('Error getting templates:', error);
     res.status(500).json({

@@ -38,6 +38,7 @@
   GENERATE_SOURCEMAP = "false"
   NODE_ENV = "production"
   NODE_OPTIONS = "--max-old-space-size=3072"
+  REACT_APP_API_URL = "/api"
 
 [dev]
   framework = "#custom"
