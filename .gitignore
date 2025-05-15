@@ -312,3 +312,21 @@ yarn-error.log*
 # IDE
 .idea/
 .vscode/
+
+# Temporary files
+uploads/
+server/uploads/
+*.csv
+!example.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
