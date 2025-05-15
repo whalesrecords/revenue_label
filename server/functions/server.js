@@ -9,16 +9,6 @@ const path = require('path');
 const { Transform } = require('stream');
 
 const app = express();
-const router = express.Router();
-
-// Configuration multer pour le stockage en mémoire
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 100 * 1024 * 1024 // 100MB limit
-  }
-});
 
 // Configuration CORS plus permissive
 app.use(cors({
@@ -26,7 +16,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Accept', 'Origin', 'X-Requested-With', 'Authorization'],
   credentials: true,
-  maxAge: 86400 // Cache les résultats de preflight pendant 24 heures
+  maxAge: 86400
 }));
 
 // Middleware pour gérer les options CORS
@@ -41,8 +31,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// Configuration multer pour le stockage en mémoire
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024 // 100MB limit
+  }
+});
+
 app.use(express.json());
-app.use('/.netlify/functions/server', router);
 
 // Predefined templates
 const predefinedTemplates = {
@@ -143,7 +141,11 @@ const cleanRevenueValue = (value) => {
 };
 
 // Routes
-router.get('/templates', (req, res) => {
+app.get('/', (req, res) => {
+  res.json({ message: 'API is working' });
+});
+
+app.get('/templates', (req, res) => {
   console.log('GET /templates called');
   console.log('Available templates:', Object.keys(templates));
   const templatesList = Object.entries(templates).map(([name, template]) => ({
@@ -153,9 +155,10 @@ router.get('/templates', (req, res) => {
   res.json(templatesList);
 });
 
-router.post('/templates', express.json(), (req, res) => {
+app.post('/templates', express.json(), (req, res) => {
   try {
     const template = req.body;
+    console.log('Received template:', template);
     const requiredFields = ['name', 'track_column', 'artist_column', 'upc_column', 'revenue_column', 'date_column', 'currency'];
     const missingFields = requiredFields.filter(field => !template[field]);
     
@@ -178,11 +181,41 @@ router.post('/templates', express.json(), (req, res) => {
 
     res.json(templates[template.name]);
   } catch (error) {
+    console.error('Error saving template:', error);
     res.status(500).json({ error: 'Failed to save template' });
   }
 });
 
-router.post('/analyze', upload.single('file'), async (req, res) => {
+app.post('/read-headers', upload.single('file'), (req, res) => {
+  console.log('POST /read-headers called');
+  if (!req.file) {
+    console.log('No file uploaded');
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  try {
+    console.log('Processing file:', req.file.originalname);
+    const fileContent = req.file.buffer.toString();
+    parse(fileContent, {
+      to: 1,
+      skip_empty_lines: true
+    }, (err, records) => {
+      if (err) {
+        console.error('Error reading CSV headers:', err);
+        return res.status(500).json({ error: 'Failed to read CSV headers' });
+      }
+      const headers = records[0] || [];
+      console.log('Headers found:', headers);
+      res.json({ headers });
+    });
+  } catch (error) {
+    console.error('Error reading file:', error);
+    res.status(500).json({ error: 'Failed to read file' });
+  }
+});
+
+app.post('/analyze', upload.single('file'), async (req, res) => {
+  console.log('POST /analyze called');
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
@@ -208,9 +241,6 @@ router.post('/analyze', upload.single('file'), async (req, res) => {
       periodSummary: {}
     };
 
-    // Process records...
-    // (Ajoutez ici la logique de traitement des enregistrements)
-
     res.json(results);
   } catch (error) {
     console.error('Error processing file:', error);
@@ -218,28 +248,23 @@ router.post('/analyze', upload.single('file'), async (req, res) => {
   }
 });
 
-router.post('/read-headers', upload.single('file'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
-  }
+// Export the serverless handler
+const handler = serverless(app);
+module.exports.handler = async (event, context) => {
+  // Log the incoming request
+  console.log('Incoming request:', {
+    path: event.path,
+    httpMethod: event.httpMethod,
+    headers: event.headers
+  });
 
-  try {
-    const fileContent = req.file.buffer.toString();
-    parse(fileContent, {
-      to: 1,
-      skip_empty_lines: true
-    }, (err, records) => {
-      if (err) {
-        console.error('Error reading CSV headers:', err);
-        return res.status(500).json({ error: 'Failed to read CSV headers' });
-      }
-      const headers = records[0] || [];
-      res.json({ headers });
-    });
-  } catch (error) {
-    console.error('Error reading file:', error);
-    res.status(500).json({ error: 'Failed to read file' });
-  }
-});
+  const result = await handler(event, context);
+  
+  // Log the response
+  console.log('Response:', {
+    statusCode: result.statusCode,
+    headers: result.headers
+  });
 
-module.exports.handler = serverless(app); 
+  return result;
+}; 
