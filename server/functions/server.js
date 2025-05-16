@@ -26,6 +26,16 @@ const templates = [
     date_column: "Operation Date",
     source: "BELIEVE",
     currency: "EUR"
+  },
+  {
+    name: "DashGo",
+    track_column: "Track Title",
+    artist_column: "Artist Name",
+    upc_column: "UPC",
+    revenue_column: "Payable",
+    date_column: "Transaction Date",
+    source: "DashGo",
+    currency: "USD"
   }
 ];
 
