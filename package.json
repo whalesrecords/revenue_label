@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "clean": "rm -rf build && rm -rf .netlify",
+    "install:server": "cd server && npm install",
+    "build:server": "cd server && npm run build",
+    "clean": "rm -rf server/functions-build && rm -rf .netlify && rm -rf build",
     "prebuild": "npm run clean",
-    "build": "react-scripts build",
+    "build": "npm run install:server && npm run build:server && react-scripts build",
     "start": "react-scripts start",
     "dev": "netlify dev"
   },
@@ -16,10 +18,14 @@
     "react-scripts": "5.0.1",
     "@mui/material": "^5.0.0",
     "@mui/icons-material": "^5.0.0",
-    "react-dropzone": "^11.3.4"
+    "react-dropzone": "^11.3.4",
+    "tailwindcss": "^3.3.0",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.21"
   },
   "devDependencies": {
-    "netlify-cli": "^17.0.0"
+    "netlify-cli": "^17.0.0",
+    "@tailwindcss/forms": "^0.5.3"
   },
   "browserslist": {
     "production": [
