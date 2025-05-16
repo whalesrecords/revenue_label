@@ -15,8 +15,8 @@ const getBaseUrl = () => {
 };
 
 const config = {
-  API_URL: '',
-  ANALYZE_ENDPOINT: '/analyze',
+  API_URL: getBaseUrl(),
+  ANALYZE_ENDPOINT: '/.netlify/functions/server',
   TEMPLATE_ENDPOINTS: {
     get: '/.netlify/functions/templates',
     create: '/.netlify/functions/templates',
