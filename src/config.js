@@ -4,8 +4,8 @@ const environment = process.env.NODE_ENV || 'development';
 const getBaseUrl = () => {
   if (typeof window === 'undefined') return '';
   
-  // For production and preview deployments on Netlify
-  if (window.location.hostname.includes('netlify.app')) {
+  // For production and preview deployments
+  if (window.location.hostname.includes('netlify.app') || window.location.hostname === 'whalesrecords.com') {
     return window.location.origin;
   }
   
