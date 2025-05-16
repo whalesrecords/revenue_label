@@ -1,3 +1,12 @@
+const express = require('express');
+const serverless = require('serverless-http');
+const cors = require('cors');
+const app = express();
+
+// Enable CORS
+app.use(cors());
+app.use(express.json());
+
 // Predefined templates
 let templates = [
   {
@@ -30,110 +39,53 @@ let templates = [
   }
 ];
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Max-Age': '86400'
-};
-
-exports.handler = async function(event, context) {
-  // Log request details
-  console.log('Function called:', event.path);
-  console.log('HTTP method:', event.httpMethod);
-  console.log('Request body:', event.body);
-  
-  // Handle OPTIONS request for CORS
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 204,
-      headers: corsHeaders,
-      body: ''
-    };
+// GET templates
+app.get('/', async (req, res) => {
+  console.log('GET /templates called');
+  try {
+    res.json(templates);
+  } catch (error) {
+    console.error('Error getting templates:', error);
+    res.status(500).json({ error: 'Failed to get templates' });
   }
+});
 
-  // Handle GET request
-  if (event.httpMethod === 'GET') {
-    return {
-      statusCode: 200,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(templates)
-    };
-  }
-
-  // Handle POST request (create template)
-  if (event.httpMethod === 'POST') {
-    try {
-      const newTemplate = JSON.parse(event.body);
-      
-      // Validate required fields
-      const requiredFields = ['name', 'track_column', 'artist_column', 'revenue_column', 'date_column'];
-      const missingFields = requiredFields.filter(field => !newTemplate[field]);
-      
-      if (missingFields.length > 0) {
-        return {
-          statusCode: 400,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            error: `Missing required fields: ${missingFields.join(', ')}`
-          })
-        };
-      }
-
-      // Check if template with same name exists
-      const existingTemplate = templates.find(t => t.name === newTemplate.name);
-      if (existingTemplate) {
-        return {
-          statusCode: 409,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            error: `Template with name "${newTemplate.name}" already exists`
-          })
-        };
-      }
-
-      // Add new template
-      templates.push(newTemplate);
-
-      return {
-        statusCode: 201,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(newTemplate)
-      };
-    } catch (error) {
-      console.error('Error creating template:', error);
-      return {
-        statusCode: 400,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          error: 'Invalid template data'
-        })
-      };
+// POST new template
+app.post('/', async (req, res) => {
+  console.log('POST /templates called with body:', req.body);
+  try {
+    const newTemplate = req.body;
+    
+    // Validate required fields
+    const requiredFields = ['name', 'track_column', 'revenue_column', 'date_column'];
+    const missingFields = requiredFields.filter(field => !newTemplate[field]);
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        error: `Missing required fields: ${missingFields.join(', ')}`
+      });
     }
-  }
 
-  // Handle unsupported methods
-  return {
-    statusCode: 405,
-    headers: {
-      ...corsHeaders,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ error: 'Method not allowed' })
-  };
-}; 
+    // Check if template with same name exists
+    if (templates.find(t => t.name === newTemplate.name)) {
+      return res.status(409).json({
+        error: `Template with name "${newTemplate.name}" already exists`
+      });
+    }
+
+    templates.push(newTemplate);
+    res.status(201).json(newTemplate);
+  } catch (error) {
+    console.error('Error creating template:', error);
+    res.status(500).json({ error: 'Failed to create template' });
+  }
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// Export the serverless function
+exports.handler = serverless(app); 
