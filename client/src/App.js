@@ -232,6 +232,11 @@ function App() {
       return;
     }
 
+    if (!files.length) {
+      setError('Please select at least one file');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setAnalysisResults(null);
@@ -262,6 +267,7 @@ function App() {
         });
 
         try {
+          console.log('Sending request with template:', selectedTemplate);
           const response = await fetch(config.API_URL, {
             method: 'POST',
             body: formData,
@@ -272,24 +278,23 @@ function App() {
             credentials: 'omit'
           });
 
-          if (!response.ok) {
-            let errorMessage = 'Error processing files';
-            try {
-              const errorData = await response.json();
-              errorMessage = errorData.error || errorData.details || `Server error: ${response.status}`;
-            } catch (e) {
-              console.error('Error parsing error response:', e);
-            }
-            throw new Error(errorMessage);
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            console.error('Invalid content type:', contentType);
+            throw new Error('Server returned invalid content type');
           }
 
           const result = await response.json();
           console.log('Batch result:', result);
+
+          if (!response.ok) {
+            throw new Error(result.error || `Server error: ${response.status}`);
+          }
           
           if (result.error) {
             throw new Error(result.error);
           }
-          
+
           batchResults.push(result);
           
           // Mettre à jour les résultats partiels

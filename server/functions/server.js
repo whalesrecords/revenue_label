@@ -40,9 +40,8 @@ const corsHeaders = {
 
 // Fonction pour analyser les fichiers
 const analyzeFiles = async (event) => {
-  console.log('Analyzing files from event:', event);
-  console.log('Event body:', event.body);
-  console.log('Event headers:', event.headers);
+  console.log('Starting file analysis');
+  console.log('Content-Type:', event.headers['content-type']);
   
   try {
     if (!event.body) {
@@ -50,23 +49,45 @@ const analyzeFiles = async (event) => {
     }
 
     // Since we're receiving multipart/form-data, the body will be a Buffer
-    // We need to parse it properly
     const body = Buffer.from(event.body, 'base64');
-    const boundary = event.headers['content-type'].split('boundary=')[1];
-    const parts = body.toString().split('--' + boundary);
-    
+    console.log('Decoded body size:', body.length);
+
+    // Get the boundary from the content type
+    const contentType = event.headers['content-type'];
+    if (!contentType || !contentType.includes('multipart/form-data')) {
+      throw new Error('Invalid content type. Expected multipart/form-data');
+    }
+
+    const boundary = contentType.split('boundary=')[1];
+    if (!boundary) {
+      throw new Error('No boundary found in content type');
+    }
+
+    console.log('Found boundary:', boundary);
+    const parts = body.toString().split(`--${boundary}`);
+    console.log('Found parts:', parts.length);
+
     const files = [];
     let selectedTemplate = null;
 
     // Parse multipart form data
     for (const part of parts) {
-      if (part.includes('name="files"')) {
-        const fileContent = part.split('\r\n\r\n')[1];
-        if (fileContent) {
-          files.push(fileContent);
+      if (!part.trim() || part === '--') continue;
+
+      const [headers, ...contentParts] = part.split('\r\n\r\n');
+      const content = contentParts.join('\r\n\r\n');
+
+      console.log('Processing part with headers:', headers);
+
+      if (headers.includes('name="files"')) {
+        console.log('Found file part');
+        if (content) {
+          files.push(content);
         }
-      } else if (part.includes('name="template"')) {
-        selectedTemplate = part.split('\r\n\r\n')[1].trim();
+      } else if (headers.includes('name="template"')) {
+        console.log('Found template part');
+        selectedTemplate = content.trim();
+        console.log('Selected template:', selectedTemplate);
       }
     }
 
@@ -278,25 +299,16 @@ exports.handler = async (event, context) => {
   console.log('Headers:', event.headers);
   console.log('Body size:', event.body ? Buffer.from(event.body, 'base64').length : 0);
 
-  // Augmenter la limite de taille du payload si nécessaire
-  const maxPayloadSize = process.env.MAX_PAYLOAD_SIZE || '100mb';
-  if (event.body && Buffer.from(event.body, 'base64').length > parseInt(maxPayloadSize)) {
-    return {
-      statusCode: 413,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        error: `File size exceeds limit of ${maxPayloadSize}`
-      })
-    };
-  }
+  // Fonction helper pour retourner une réponse formatée
+  const sendResponse = (statusCode, body) => ({
+    statusCode,
+    headers: corsHeaders,
+    body: JSON.stringify(body)
+  });
 
   // Gestion des requêtes OPTIONS (CORS preflight)
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 204,
-      headers: corsHeaders,
-      body: ''
-    };
+    return sendResponse(204, '');
   }
 
   try {
@@ -304,55 +316,64 @@ exports.handler = async (event, context) => {
     switch (event.httpMethod) {
       case 'GET':
         // Route pour obtenir les templates
-        return {
-          statusCode: 200,
-          headers: corsHeaders,
-          body: JSON.stringify(templates)
-        };
+        console.log('Sending templates:', templates);
+        return sendResponse(200, templates);
 
       case 'POST':
+        console.log('Processing POST request');
         // Si le chemin contient "template", c'est une mise à jour de template
         if (event.path.includes('template')) {
+          console.log('Updating template');
           const updatedTemplates = await updateTemplate(event);
-          return {
-            statusCode: 200,
-            headers: corsHeaders,
-            body: JSON.stringify(updatedTemplates)
-          };
+          return sendResponse(200, updatedTemplates);
         }
         
         // Sinon, c'est une analyse de fichiers
-        const result = await analyzeFiles(event);
-        return {
-          statusCode: 200,
-          headers: corsHeaders,
-          body: JSON.stringify(result)
-        };
+        console.log('Analyzing files');
+        try {
+          const result = await analyzeFiles(event);
+          console.log('Analysis result:', result);
+          return sendResponse(200, result);
+        } catch (error) {
+          console.error('Error in analyzeFiles:', error);
+          return sendResponse(400, {
+            summary: {
+              totalFiles: 0,
+              totalRecords: 0,
+              totalRevenue: 0,
+              totalArtistRevenue: 0,
+              uniqueTracks: [],
+              uniqueArtists: [],
+              uniquePeriods: []
+            },
+            processedFiles: [],
+            error: error.message || 'Error processing files'
+          });
+        }
 
       case 'PUT':
+        console.log('Processing PUT request');
         // Mise à jour d'un template
         const updatedTemplates = await updateTemplate(event);
-        return {
-          statusCode: 200,
-          headers: corsHeaders,
-          body: JSON.stringify(updatedTemplates)
-        };
+        return sendResponse(200, updatedTemplates);
 
       default:
-        return {
-          statusCode: 405,
-          headers: corsHeaders,
-          body: JSON.stringify({ error: 'Method not allowed' })
-        };
+        return sendResponse(405, { error: 'Method not allowed' });
     }
   } catch (error) {
     console.error('Error in handler:', error);
-    return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        error: error.message || 'Internal server error'
-      })
-    };
+    return sendResponse(500, {
+      summary: {
+        totalFiles: 0,
+        totalRecords: 0,
+        totalRevenue: 0,
+        totalArtistRevenue: 0,
+        uniqueTracks: [],
+        uniqueArtists: [],
+        uniquePeriods: []
+      },
+      processedFiles: [],
+      error: error.message || 'Internal server error'
+    });
   }
 }; 
