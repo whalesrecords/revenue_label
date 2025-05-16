@@ -37,6 +37,28 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 };
 
+// Fonction pour analyser les fichiers
+const analyzeFiles = async (files) => {
+  // Pour le moment, retournons des données de test
+  return {
+    summary: {
+      totalFiles: files.length,
+      totalRecords: 100,
+      totalRevenue: "1000.00 EUR",
+      totalArtistRevenue: "700.00 EUR",
+      uniqueTracks: 50,
+      uniqueArtists: 20,
+      uniquePeriods: 12
+    },
+    processedFiles: files.map(file => ({
+      filename: file.filename,
+      records: 100,
+      revenue: "1000.00 EUR",
+      status: "success"
+    }))
+  };
+};
+
 exports.handler = async (event, context) => {
   // Log pour le débogage
   console.log('Event path:', event.path);
@@ -52,19 +74,45 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // Route pour /templates
-  if (event.path.endsWith('/templates')) {
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify(templates)
-    };
-  }
+  // Gestion des routes en fonction de la méthode HTTP
+  switch (event.httpMethod) {
+    case 'GET':
+      // Route pour obtenir les templates
+      return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify(templates)
+      };
 
-  // Route par défaut
-  return {
-    statusCode: 404,
-    headers: corsHeaders,
-    body: JSON.stringify({ error: 'Not found' })
-  };
+    case 'POST':
+      try {
+        // Pour le test, simulons une analyse réussie
+        const result = await analyzeFiles([
+          { filename: "test1.csv" },
+          { filename: "test2.csv" }
+        ]);
+
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify(result)
+        };
+      } catch (error) {
+        console.error('Error in analyze:', error);
+        return {
+          statusCode: 500,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            error: error.message || 'Internal server error'
+          })
+        };
+      }
+
+    default:
+      return {
+        statusCode: 405,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Method not allowed' })
+      };
+  }
 }; 

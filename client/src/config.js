@@ -10,10 +10,10 @@ const getApiUrl = () => {
 const config = {
   API_URL: getApiUrl(),
   TEMPLATE_ENDPOINTS: {
-    list: '/server/templates',
-    readHeaders: '/server/read-headers'
+    list: '/server',
+    readHeaders: '/server'
   },
-  ANALYZE_ENDPOINT: '/server/analyze',
+  ANALYZE_ENDPOINT: '/server',
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
