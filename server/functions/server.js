@@ -41,25 +41,50 @@ const corsHeaders = {
 // Fonction pour analyser les fichiers
 const analyzeFiles = async (event) => {
   console.log('Analyzing files from event:', event);
+  console.log('Event body:', event.body);
+  console.log('Event headers:', event.headers);
   
   try {
     if (!event.body) {
-      throw new Error('No files provided');
+      throw new Error('No data provided');
     }
 
-    // Parse the multipart form data
-    const formData = event.body;
-    const files = formData.files || [];
-    const templateName = formData.template;
+    // Since we're receiving multipart/form-data, the body will be a Buffer
+    // We need to parse it properly
+    const body = Buffer.from(event.body, 'base64');
+    const boundary = event.headers['content-type'].split('boundary=')[1];
+    const parts = body.toString().split('--' + boundary);
+    
+    const files = [];
+    let selectedTemplate = null;
+
+    // Parse multipart form data
+    for (const part of parts) {
+      if (part.includes('name="files"')) {
+        const fileContent = part.split('\r\n\r\n')[1];
+        if (fileContent) {
+          files.push(fileContent);
+        }
+      } else if (part.includes('name="template"')) {
+        selectedTemplate = part.split('\r\n\r\n')[1].trim();
+      }
+    }
+
+    console.log('Parsed files:', files.length);
+    console.log('Selected template:', selectedTemplate);
 
     if (!files.length) {
       throw new Error('No files found in request');
     }
 
+    if (!selectedTemplate) {
+      throw new Error('No template selected');
+    }
+
     // Find the selected template
-    const template = templates.find(t => t.name === templateName);
+    const template = templates.find(t => t.name === selectedTemplate);
     if (!template) {
-      throw new Error('Template not found');
+      throw new Error(`Template "${selectedTemplate}" not found`);
     }
 
     let totalRevenue = 0;
@@ -71,10 +96,17 @@ const analyzeFiles = async (event) => {
     const processedFiles = [];
 
     // Process each file
-    for (const file of files) {
-      const fileContent = file.toString('utf-8');
+    for (let i = 0; i < files.length; i++) {
+      const fileContent = files[i];
       const lines = fileContent.split('\n');
+      
+      if (lines.length < 2) {
+        console.warn(`Empty or invalid file at index ${i}`);
+        continue;
+      }
+
       const headers = lines[0].split(',').map(h => h.trim());
+      console.log('File headers:', headers);
 
       // Validate required columns exist
       const columnIndexes = {
@@ -84,35 +116,47 @@ const analyzeFiles = async (event) => {
         date: headers.indexOf(template.date_column)
       };
 
-      for (const [field, index] of Object.entries(columnIndexes)) {
-        if (index === -1) {
-          throw new Error(`Required column ${field} not found in file ${file.name}`);
-        }
+      console.log('Column indexes:', columnIndexes);
+
+      const missingColumns = Object.entries(columnIndexes)
+        .filter(([_, index]) => index === -1)
+        .map(([field]) => template[`${field}_column`]);
+
+      if (missingColumns.length > 0) {
+        throw new Error(`Missing required columns in file ${i + 1}: ${missingColumns.join(', ')}`);
       }
 
       let fileRevenue = 0;
       let fileRecords = 0;
 
       // Process each data row
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
+      for (let j = 1; j < lines.length; j++) {
+        const line = lines[j].trim();
         if (!line) continue;
 
         const values = line.split(',').map(v => v.trim());
         
+        if (values.length !== headers.length) {
+          console.warn(`Skipping malformed line ${j} in file ${i + 1}`);
+          continue;
+        }
+
         const track = values[columnIndexes.track];
         const artist = values[columnIndexes.artist];
-        const revenue = parseFloat(values[columnIndexes.revenue]) || 0;
+        const revenue = parseFloat(values[columnIndexes.revenue].replace(/[^0-9.-]+/g, '')) || 0;
         const date = values[columnIndexes.date];
 
         if (track) uniqueTracks.add(track);
         if (artist) uniqueArtists.add(artist);
         if (date) {
-          // Normalize date to YYYY-MM format
-          const dateObj = new Date(date);
-          if (!isNaN(dateObj.getTime())) {
-            const period = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
-            uniquePeriods.add(period);
+          try {
+            const dateObj = new Date(date);
+            if (!isNaN(dateObj.getTime())) {
+              const period = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+              uniquePeriods.add(period);
+            }
+          } catch (error) {
+            console.warn(`Invalid date format in file ${i + 1}, line ${j}: ${date}`);
           }
         }
 
@@ -122,11 +166,10 @@ const analyzeFiles = async (event) => {
 
       totalRevenue += fileRevenue;
       totalRecords += fileRecords;
-      // Assuming artist revenue is 70% of total revenue
       totalArtistRevenue += fileRevenue * 0.7;
 
       processedFiles.push({
-        filename: file.name,
+        filename: `File ${i + 1}`,
         records: fileRecords,
         revenue: fileRevenue,
         status: 'success'
@@ -137,8 +180,8 @@ const analyzeFiles = async (event) => {
       summary: {
         totalFiles: files.length,
         totalRecords,
-        totalRevenue,
-        totalArtistRevenue,
+        totalRevenue: parseFloat(totalRevenue.toFixed(2)),
+        totalArtistRevenue: parseFloat(totalArtistRevenue.toFixed(2)),
         uniqueTracks: Array.from(uniqueTracks),
         uniqueArtists: Array.from(uniqueArtists),
         uniquePeriods: Array.from(uniquePeriods)
@@ -147,7 +190,13 @@ const analyzeFiles = async (event) => {
     };
   } catch (error) {
     console.error('Error analyzing files:', error);
-    throw new Error('Failed to analyze files: ' + error.message);
+    return {
+      statusCode: 500,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        error: error.message || 'Internal server error'
+      })
+    };
   }
 };
 
