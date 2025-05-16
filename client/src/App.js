@@ -227,6 +227,11 @@ function App() {
   };
 
   const handleAnalyze = async () => {
+    if (!selectedTemplate) {
+      setError('Please select a template first');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setAnalysisResults(null);
@@ -249,6 +254,8 @@ function App() {
         setProcessingStatus(prev => ({ ...prev, current: i + 1 }));
 
         const formData = new FormData();
+        formData.append('template', selectedTemplate);
+        
         batch.forEach(file => {
           console.log('Adding file to batch:', file.name, file.size);
           formData.append('files', file);
@@ -269,7 +276,7 @@ function App() {
             let errorMessage = 'Error processing files';
             try {
               const errorData = await response.json();
-              errorMessage = errorData.details || errorData.error || `Server error: ${response.status}`;
+              errorMessage = errorData.error || errorData.details || `Server error: ${response.status}`;
             } catch (e) {
               console.error('Error parsing error response:', e);
             }
@@ -278,6 +285,11 @@ function App() {
 
           const result = await response.json();
           console.log('Batch result:', result);
+          
+          if (result.error) {
+            throw new Error(result.error);
+          }
+          
           batchResults.push(result);
           
           // Mettre à jour les résultats partiels

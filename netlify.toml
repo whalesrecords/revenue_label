@@ -21,17 +21,25 @@
 
 [functions]
   node_bundler = "esbuild"
+  included_files = ["server/functions/**"]
+
+[functions."server"]
+  included_files = []
+  external_node_modules = []
+  node_bundler = "esbuild"
+
+[functions."server".environment]
+  MAX_PAYLOAD_SIZE = "100mb"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, Accept"
 
 [build.environment]
   NODE_VERSION = "18"
   NPM_VERSION = "9"
   CI = "false"
-  NODE_ENV = "production"
-
-[[headers]]
-  for = "/*"
-    [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With"
-    Access-Control-Max-Age = "86400" 
+  NODE_ENV = "production" 

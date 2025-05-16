@@ -276,7 +276,19 @@ exports.handler = async (event, context) => {
   console.log('Event path:', event.path);
   console.log('HTTP method:', event.httpMethod);
   console.log('Headers:', event.headers);
-  console.log('Body:', event.body);
+  console.log('Body size:', event.body ? Buffer.from(event.body, 'base64').length : 0);
+
+  // Augmenter la limite de taille du payload si nécessaire
+  const maxPayloadSize = process.env.MAX_PAYLOAD_SIZE || '100mb';
+  if (event.body && Buffer.from(event.body, 'base64').length > parseInt(maxPayloadSize)) {
+    return {
+      statusCode: 413,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        error: `File size exceeds limit of ${maxPayloadSize}`
+      })
+    };
+  }
 
   // Gestion des requêtes OPTIONS (CORS preflight)
   if (event.httpMethod === 'OPTIONS') {
