@@ -23,6 +23,9 @@ const config = {
     delete: '/template'
   },
   DEFAULT_HEADERS: {
+    'Accept': 'application/json'
+  },
+  JSON_HEADERS: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   },

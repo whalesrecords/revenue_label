@@ -295,6 +295,7 @@ function App() {
       const response = await fetch(`${config.API_URL}/analyze`, {
         method: 'POST',
         body: formData,
+        headers: config.DEFAULT_HEADERS,
         mode: 'cors',
         credentials: 'omit'
       });
@@ -330,39 +331,27 @@ function App() {
         throw new Error('Template name is required');
       }
 
-      // Validate required fields
       const requiredFields = ['track_column', 'artist_column', 'revenue_column', 'date_column'];
       const missingFields = requiredFields.filter(field => !template[field]);
       if (missingFields.length > 0) {
         throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
       }
 
-      console.log('Saving template:', template);
       const response = await fetch(`${config.API_URL}${config.TEMPLATE_ENDPOINTS.create}`, {
         method: 'POST',
-        headers: config.DEFAULT_HEADERS,
+        headers: config.JSON_HEADERS,
         body: JSON.stringify(template),
       });
 
       if (!response.ok) {
-        let errorMessage = 'Failed to save template';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorData.error || `Server error: ${response.status}`;
-        } catch (e) {
-          console.error('Error parsing error response:', e);
-          errorMessage = await response.text();
-        }
-        throw new Error(errorMessage);
+        const errorData = await response.json();
+        throw new Error(errorData?.error || 'Failed to save template');
       }
 
       const savedTemplate = await response.json();
-      console.log('Template saved successfully:', savedTemplate);
       
-      // Update templates list with type checking
       setTemplates(prev => {
         if (!Array.isArray(prev)) {
-          console.warn('Previous templates state was not an array, resetting to empty array');
           return [savedTemplate];
         }
         const updated = prev.filter(t => t.name !== template.name);
@@ -374,7 +363,6 @@ function App() {
     } catch (err) {
       console.error('Error saving template:', err);
       setError(`Failed to save template: ${err.message}`);
-      // Ne pas fermer le dialog en cas d'erreur pour permettre à l'utilisateur de corriger
     }
   };
 
@@ -387,12 +375,13 @@ function App() {
     try {
       const response = await fetch(`${config.API_URL}/template`, {
         method: 'PUT',
-        headers: config.DEFAULT_HEADERS,
+        headers: config.JSON_HEADERS,
         body: JSON.stringify(editedTemplate)
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update template');
+        const errorData = await response.json();
+        throw new Error(errorData?.error || 'Failed to update template');
       }
 
       const updatedTemplates = await response.json();
