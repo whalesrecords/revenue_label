@@ -5,39 +5,13 @@
   functions = "server/functions"
 
 [functions]
-  directory = "server/functions"
   node_bundler = "esbuild"
-  included_files = ["server/functions/**/*"]
-  external_node_modules = [
-    "express",
-    "serverless-http",
-    "multer",
-    "cors",
-    "csv-parse",
-    "csv-stringify"
-  ]
-
-[functions.timeout]
-  duration = 30
-
-[functions.server]
-  maxDuration = 30
-
-[[headers]]
-  for = "/*"
-    [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-    Access-Control-Max-Age = "86400"
-    Cache-Control = "no-cache"
 
 [[redirects]]
   from = "/.netlify/functions/server/*"
   to = "/.netlify/functions/server/:splat"
   status = 200
   force = true
-  conditions = {Role = ["admin", "user"]}
 
 [[redirects]]
   from = "/*"
@@ -49,13 +23,4 @@
   NODE_VERSION = "18"
   NPM_VERSION = "9"
   CI = "false"
-  GENERATE_SOURCEMAP = "false"
-  NODE_ENV = "production"
-  NODE_OPTIONS = "--max-old-space-size=3072"
-
-[dev]
-  framework = "#custom"
-  targetPort = 3000
-  port = 8888
-  command = "npm run start"
-  publish = "client/build" 
+  NODE_ENV = "production" 
