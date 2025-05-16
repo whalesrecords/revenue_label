@@ -42,21 +42,21 @@ const corsHeaders = {
 const analyzeFiles = async (event) => {
   console.log('Analyzing files from event:', event);
   
-  // Pour le moment, retournons des données de test
+  // Données de test avec le bon format
   return {
     summary: {
       totalFiles: 1,
       totalRecords: 100,
-      totalRevenue: "1000.00 EUR",
-      totalArtistRevenue: "700.00 EUR",
-      uniqueTracks: 50,
-      uniqueArtists: 20,
-      uniquePeriods: 12
+      totalRevenue: 1000.00,
+      totalArtistRevenue: 700.00,
+      uniqueTracks: ["Track 1", "Track 2", "Track 3"],
+      uniqueArtists: ["Artist 1", "Artist 2"],
+      uniquePeriods: ["2024-01", "2024-02"]
     },
     processedFiles: [{
       filename: "test.csv",
       records: 100,
-      revenue: "1000.00 EUR",
+      revenue: 1000.00,
       status: "success"
     }]
   };

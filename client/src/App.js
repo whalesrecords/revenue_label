@@ -190,12 +190,21 @@ function App() {
     };
 
     batchResults.forEach(result => {
-      merged.totalRevenue += parseFloat(result.summary.totalRevenue);
-      merged.totalArtistRevenue += parseFloat(result.summary.totalArtistRevenue);
+      merged.totalRevenue += result.summary.totalRevenue;
+      merged.totalArtistRevenue += result.summary.totalArtistRevenue;
       merged.totalRecords += result.summary.totalRecords;
-      result.summary.uniqueTracks.forEach(track => merged.uniqueTracks.add(track));
-      result.summary.uniqueArtists.forEach(artist => merged.uniqueArtists.add(artist));
-      result.summary.uniquePeriods.forEach(period => merged.uniquePeriods.add(period));
+      
+      // Gestion des tableaux
+      if (Array.isArray(result.summary.uniqueTracks)) {
+        result.summary.uniqueTracks.forEach(track => merged.uniqueTracks.add(track));
+      }
+      if (Array.isArray(result.summary.uniqueArtists)) {
+        result.summary.uniqueArtists.forEach(artist => merged.uniqueArtists.add(artist));
+      }
+      if (Array.isArray(result.summary.uniquePeriods)) {
+        result.summary.uniquePeriods.forEach(period => merged.uniquePeriods.add(period));
+      }
+      
       merged.processedFiles.push(...result.processedFiles);
     });
 
