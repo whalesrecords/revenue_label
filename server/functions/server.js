@@ -32,10 +32,11 @@ const templates = [
 // Configuration CORS
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, Origin, X-Requested-With',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Max-Age': '86400',
-  'Content-Type': 'application/json; charset=utf-8'
+  'Content-Type': 'application/json; charset=utf-8',
+  'Access-Control-Allow-Credentials': 'true'
 };
 
 // Fonction pour analyser les fichiers
@@ -268,7 +269,10 @@ const updateTemplate = async (event) => {
 const sendResponse = (statusCode, body) => {
   const response = {
     statusCode,
-    headers: corsHeaders,
+    headers: {
+      ...corsHeaders,
+      'Vary': 'Origin'
+    },
     body: JSON.stringify(body)
   };
   console.log('Sending response:', response);
@@ -297,13 +301,17 @@ exports.handler = async (event, context) => {
   console.log('Event path:', event.path);
   console.log('HTTP method:', event.httpMethod);
   console.log('Headers:', event.headers);
+  console.log('Origin:', event.headers.origin || event.headers.Origin);
   console.log('Body size:', event.body ? Buffer.from(event.body, 'base64').length : 0);
 
   // Gestion des requêtes OPTIONS (CORS preflight)
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
-      headers: corsHeaders,
+      headers: {
+        ...corsHeaders,
+        'Vary': 'Origin'
+      },
       body: ''
     };
   }
