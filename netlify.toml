@@ -31,7 +31,6 @@
   node_bundler = "esbuild"
   included_files = ["netlify/functions/**"]
   external_node_modules = ["@netlify/functions"]
-  node_options = "--max-old-space-size=8192"
 
 [functions.server]
   included_files = []
