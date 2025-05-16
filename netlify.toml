@@ -11,10 +11,22 @@
   targetPort = 3000
   publish = "build"
 
-# Serve static files first
+# API routes first
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+  force = true
+
+# Static assets
 [[redirects]]
   from = "/static/*"
   to = "/static/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/assets/*"
+  to = "/assets/:splat"
   status = 200
 
 [[redirects]]
@@ -37,18 +49,17 @@
   to = "/favicon.ico"
   status = 200
 
-# Then API routes
 [[redirects]]
-  from = "/analyze"
-  to = "/.netlify/functions/server"
+  from = "/logo192.png"
+  to = "/logo192.png"
   status = 200
 
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  from = "/logo512.png"
+  to = "/logo512.png"
   status = 200
 
-# Finally, catch-all for SPA
+# SPA fallback
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -83,7 +94,6 @@
     Access-Control-Max-Age = "86400"
     Vary = "Origin"
 
-# Add specific headers for static files
 [[headers]]
   for = "/*.js"
   [headers.values]

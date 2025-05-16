@@ -4,10 +4,9 @@ const environment = process.env.NODE_ENV || 'development';
 const getBaseUrl = () => {
   if (typeof window === 'undefined') return '';
   
-  const hostname = window.location.hostname;
-  if (hostname.includes('netlify.app')) {
-    // For preview deployments and production
-    return `https://${hostname}`;
+  // For production on app-label-wr.netlify.app
+  if (window.location.hostname === 'app-label-wr.netlify.app') {
+    return 'https://app-label-wr.netlify.app';
   }
   
   // For local development
@@ -25,7 +24,10 @@ const config = {
   },
   DEFAULT_HEADERS: {
     'Accept': 'application/json',
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept'
   },
   environment
 };

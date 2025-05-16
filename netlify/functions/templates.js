@@ -39,8 +39,10 @@ let templates = [
   }
 ];
 
+const router = express.Router();
+
 // GET templates
-app.get('/', async (req, res) => {
+router.get('/', async (req, res) => {
   console.log('GET /templates called');
   try {
     res.json(templates);
@@ -51,7 +53,7 @@ app.get('/', async (req, res) => {
 });
 
 // POST new template
-app.post('/', async (req, res) => {
+router.post('/', async (req, res) => {
   console.log('POST /templates called with body:', req.body);
   try {
     const newTemplate = req.body;
@@ -80,6 +82,9 @@ app.post('/', async (req, res) => {
     res.status(500).json({ error: 'Failed to create template' });
   }
 });
+
+// Mount the router
+app.use('/.netlify/functions/templates', router);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
