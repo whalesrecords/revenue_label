@@ -30,7 +30,15 @@
 [functions]
   node_bundler = "esbuild"
   included_files = ["netlify/functions/**"]
-  external_node_modules = ["@netlify/functions"]
+  external_node_modules = [
+    "@netlify/functions",
+    "express",
+    "serverless-http",
+    "cors",
+    "multer",
+    "csv-parse",
+    "csv-stringify"
+  ]
 
 [functions.server]
   included_files = []
