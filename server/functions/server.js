@@ -35,7 +35,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
   'Access-Control-Max-Age': '86400',
-  'Content-Type': 'application/json'
+  'Content-Type': 'application/json; charset=utf-8'
 };
 
 // Fonction pour analyser les fichiers
@@ -294,19 +294,34 @@ const updateTemplate = async (event) => {
 
 // Fonction helper pour retourner une réponse formatée
 const sendResponse = (statusCode, body) => {
-  console.log('Sending response:', { statusCode, body });
-  return {
+  const response = {
     statusCode,
-    headers: {
-      ...corsHeaders,
-      'Content-Type': 'application/json'
-    },
+    headers: corsHeaders,
     body: JSON.stringify(body)
   };
+  console.log('Sending response:', response);
+  return response;
+};
+
+// Fonction helper pour retourner une erreur
+const sendError = (statusCode, error) => {
+  console.error('Sending error response:', error);
+  return sendResponse(statusCode, {
+    summary: {
+      totalFiles: 0,
+      totalRecords: 0,
+      totalRevenue: 0,
+      totalArtistRevenue: 0,
+      uniqueTracks: [],
+      uniqueArtists: [],
+      uniquePeriods: []
+    },
+    processedFiles: [],
+    error: error.message || error
+  });
 };
 
 exports.handler = async (event, context) => {
-  // Log pour le débogage
   console.log('Event path:', event.path);
   console.log('HTTP method:', event.httpMethod);
   console.log('Headers:', event.headers);
@@ -316,10 +331,7 @@ exports.handler = async (event, context) => {
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      },
+      headers: corsHeaders,
       body: ''
     };
   }
@@ -334,59 +346,44 @@ exports.handler = async (event, context) => {
 
       case 'POST':
         console.log('Processing POST request');
-        // Si le chemin contient "template", c'est une mise à jour de template
-        if (event.path.includes('template')) {
-          console.log('Updating template');
-          const updatedTemplates = await updateTemplate(event);
-          return sendResponse(200, updatedTemplates);
-        }
-        
-        // Sinon, c'est une analyse de fichiers
-        console.log('Analyzing files');
         try {
+          // Si le chemin contient "template", c'est une mise à jour de template
+          if (event.path.includes('template')) {
+            console.log('Updating template');
+            const updatedTemplates = await updateTemplate(event);
+            return sendResponse(200, updatedTemplates);
+          }
+          
+          // Sinon, c'est une analyse de fichiers
+          console.log('Analyzing files');
           const result = await analyzeFiles(event);
           console.log('Analysis result:', result);
+          
+          if (result.error) {
+            return sendError(400, result.error);
+          }
+          
           return sendResponse(200, result);
         } catch (error) {
-          console.error('Error in analyzeFiles:', error);
-          return sendResponse(400, {
-            summary: {
-              totalFiles: 0,
-              totalRecords: 0,
-              totalRevenue: 0,
-              totalArtistRevenue: 0,
-              uniqueTracks: [],
-              uniqueArtists: [],
-              uniquePeriods: []
-            },
-            processedFiles: [],
-            error: error.message || 'Error processing files'
-          });
+          console.error('Error in POST handler:', error);
+          return sendError(400, error);
         }
 
       case 'PUT':
         console.log('Processing PUT request');
-        // Mise à jour d'un template
-        const updatedTemplates = await updateTemplate(event);
-        return sendResponse(200, updatedTemplates);
+        try {
+          const updatedTemplates = await updateTemplate(event);
+          return sendResponse(200, updatedTemplates);
+        } catch (error) {
+          console.error('Error in PUT handler:', error);
+          return sendError(400, error);
+        }
 
       default:
-        return sendResponse(405, { error: 'Method not allowed' });
+        return sendError(405, 'Method not allowed');
     }
   } catch (error) {
     console.error('Error in handler:', error);
-    return sendResponse(500, {
-      summary: {
-        totalFiles: 0,
-        totalRecords: 0,
-        totalRevenue: 0,
-        totalArtistRevenue: 0,
-        uniqueTracks: [],
-        uniqueArtists: [],
-        uniquePeriods: []
-      },
-      processedFiles: [],
-      error: error.message || 'Internal server error'
-    });
+    return sendError(500, error);
   }
 }; 

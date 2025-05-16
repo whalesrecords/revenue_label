@@ -278,25 +278,24 @@ function App() {
             credentials: 'omit'
           });
 
+          console.log('Response status:', response.status);
           console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+          
           let result;
+          const text = await response.text();
+          console.log('Raw response:', text);
           
           try {
-            const text = await response.text();
-            console.log('Raw response:', text);
             result = JSON.parse(text);
-            console.log('Parsed result:', result);
           } catch (e) {
-            console.error('Error parsing response:', e);
-            throw new Error('Failed to parse server response');
-          }
-
-          if (!response.ok) {
-            throw new Error(result.error || `Server error: ${response.status}`);
+            console.error('Failed to parse response as JSON:', text);
+            throw new Error('Server returned invalid JSON response');
           }
           
-          if (result.error) {
-            throw new Error(result.error);
+          console.log('Parsed result:', result);
+
+          if (!response.ok || result.error) {
+            throw new Error(result.error || `Server error: ${response.status}`);
           }
 
           batchResults.push(result);
