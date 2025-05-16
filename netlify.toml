@@ -9,11 +9,6 @@
   targetPort = 3000
 
 [[redirects]]
-  from = "/.netlify/functions/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-
-[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
@@ -23,12 +18,16 @@
   node_bundler = "esbuild"
   included_files = ["server/functions/**"]
 
-[functions."server"]
+[functions."*"]
+  included_files = ["server/functions/**"]
+  node_bundler = "esbuild"
+
+[functions.server]
   included_files = []
   external_node_modules = []
   node_bundler = "esbuild"
 
-[functions."server".environment]
+[functions.server.environment]
   MAX_PAYLOAD_SIZE = "100mb"
 
 [[headers]]
