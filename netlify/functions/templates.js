@@ -15,7 +15,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Predefined templates
-let templates = [
+const templates = [
   {
     name: "Tunecore",
     track_column: "Song Title",
@@ -56,8 +56,11 @@ let templates = [
   }
 ];
 
+// Create router for templates
+const router = express.Router();
+
 // GET templates
-app.get('/', async (req, res) => {
+router.get('/', async (req, res) => {
   console.log('GET /templates called');
   try {
     res.json(templates);
@@ -68,7 +71,7 @@ app.get('/', async (req, res) => {
 });
 
 // POST new template
-app.post('/', async (req, res) => {
+router.post('/', async (req, res) => {
   console.log('POST /templates called with body:', req.body);
   try {
     const newTemplate = req.body;
@@ -98,6 +101,9 @@ app.post('/', async (req, res) => {
   }
 });
 
+// Mount router at the root path
+app.use('/.netlify/functions/templates', router);
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err);
@@ -105,4 +111,93 @@ app.use((err, req, res, next) => {
 });
 
 // Export the serverless function
-exports.handler = serverless(app); 
+exports.handler = async (event, context) => {
+  // Set CORS headers
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Content-Type': 'application/json'
+  };
+
+  // Handle OPTIONS request for CORS
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,
+      headers
+    };
+  }
+
+  try {
+    if (event.httpMethod === 'GET') {
+      console.log('GET /templates called');
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify(templates)
+      };
+    }
+
+    if (event.httpMethod === 'POST') {
+      console.log('POST /templates called');
+      let newTemplate;
+      
+      try {
+        newTemplate = JSON.parse(event.body);
+      } catch (error) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'Invalid JSON payload' })
+        };
+      }
+
+      // Validate required fields
+      const requiredFields = ['name', 'track_column', 'revenue_column', 'date_column'];
+      const missingFields = requiredFields.filter(field => !newTemplate[field]);
+      
+      if (missingFields.length > 0) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({
+            error: `Missing required fields: ${missingFields.join(', ')}`
+          })
+        };
+      }
+
+      // Check if template with same name exists
+      if (templates.find(t => t.name === newTemplate.name)) {
+        return {
+          statusCode: 409,
+          headers,
+          body: JSON.stringify({
+            error: `Template with name "${newTemplate.name}" already exists`
+          })
+        };
+      }
+
+      templates.push(newTemplate);
+      return {
+        statusCode: 201,
+        headers,
+        body: JSON.stringify(newTemplate)
+      };
+    }
+
+    // Method not allowed
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ error: 'Method not allowed' })
+    };
+
+  } catch (error) {
+    console.error('Error in templates function:', error);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: 'Internal server error' })
+    };
+  }
+}; 
