@@ -242,84 +242,53 @@ function App() {
     setAnalysisResults(null);
     
     try {
-      const batchSize = 10;
-      const batches = [];
+      // Traiter tous les fichiers en une seule requête
+      const formData = new FormData();
+      formData.append('template', selectedTemplate);
       
-      // Diviser les fichiers en lots
-      for (let i = 0; i < files.length; i += batchSize) {
-        batches.push(files.slice(i, Math.min(i + batchSize, files.length)));
+      files.forEach(file => {
+        console.log('Adding file:', file.name, file.size);
+        formData.append('files', file);
+      });
+
+      console.log('Sending request with template:', selectedTemplate);
+      const response = await fetch(config.API_URL, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json'
+        },
+        mode: 'cors',
+        credentials: 'omit'
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      let result;
+      const text = await response.text();
+      console.log('Raw response:', text);
+      
+      try {
+        result = JSON.parse(text);
+      } catch (e) {
+        console.error('Failed to parse response as JSON:', text);
+        throw new Error('Server returned invalid JSON response');
       }
       
-      setProcessingStatus({ current: 0, total: batches.length });
-      const batchResults = [];
+      console.log('Parsed result:', result);
 
-      // Traiter chaque lot
-      for (let i = 0; i < batches.length; i++) {
-        const batch = batches[i];
-        setProcessingStatus(prev => ({ ...prev, current: i + 1 }));
-
-        const formData = new FormData();
-        formData.append('template', selectedTemplate);
-        
-        batch.forEach(file => {
-          console.log('Adding file to batch:', file.name, file.size);
-          formData.append('files', file);
-        });
-
-        try {
-          console.log('Sending request with template:', selectedTemplate);
-          const response = await fetch(config.API_URL, {
-            method: 'POST',
-            body: formData,
-            headers: {
-              'Accept': 'application/json'
-            },
-            mode: 'cors',
-            credentials: 'omit'
-          });
-
-          console.log('Response status:', response.status);
-          console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-          
-          let result;
-          const text = await response.text();
-          console.log('Raw response:', text);
-          
-          try {
-            result = JSON.parse(text);
-          } catch (e) {
-            console.error('Failed to parse response as JSON:', text);
-            throw new Error('Server returned invalid JSON response');
-          }
-          
-          console.log('Parsed result:', result);
-
-          if (!response.ok || result.error) {
-            throw new Error(result.error || `Server error: ${response.status}`);
-          }
-
-          batchResults.push(result);
-          
-          // Mettre à jour les résultats partiels
-          if (batchResults.length > 0) {
-            setAnalysisResults(mergeBatchResults(batchResults));
-          }
-        } catch (err) {
-          console.error(`Error processing batch ${i + 1}:`, err);
-          throw new Error(`Erreur lors du traitement du lot ${i + 1}: ${err.message}`);
-        }
+      if (!response.ok || result.error) {
+        throw new Error(result.error || `Server error: ${response.status}`);
       }
 
-      // Fusionner tous les résultats
-      const finalResults = mergeBatchResults(batchResults);
-      setAnalysisResults(finalResults);
+      setAnalysisResults(result);
       setTabIndex(1); // Switch to results tab
     } catch (err) {
       console.error('Error analyzing files:', err);
       setError(err.message || 'Erreur lors de l\'analyse des fichiers');
     } finally {
       setLoading(false);
-      setProcessingStatus({ current: 0, total: 0 });
     }
   };
 

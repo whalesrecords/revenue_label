@@ -64,7 +64,8 @@ const analyzeFiles = async (event) => {
     }
 
     console.log('Found boundary:', boundary);
-    const parts = body.toString().split(`--${boundary}`);
+    const bodyStr = body.toString('utf-8');
+    const parts = bodyStr.split(`--${boundary}`);
     console.log('Found parts:', parts.length);
 
     const files = [];
@@ -77,12 +78,18 @@ const analyzeFiles = async (event) => {
       const [headers, ...contentParts] = part.split('\r\n\r\n');
       const content = contentParts.join('\r\n\r\n');
 
-      console.log('Processing part with headers:', headers);
+      console.log('Processing part headers:', headers);
 
       if (headers.includes('name="files"')) {
         console.log('Found file part');
+        const filename = headers.match(/filename="([^"]+)"/)?.[1];
+        console.log('Filename:', filename);
+        
         if (content) {
-          files.push(content);
+          files.push({
+            content: content.trim(),
+            filename: filename || `File ${files.length + 1}`
+          });
         }
       } else if (headers.includes('name="template"')) {
         console.log('Found template part');
@@ -91,57 +98,18 @@ const analyzeFiles = async (event) => {
       }
     }
 
-    console.log('Parsed files:', files.length);
-    console.log('Selected template:', selectedTemplate);
-
     if (!files.length) {
-      return {
-        summary: {
-          totalFiles: 0,
-          totalRecords: 0,
-          totalRevenue: 0,
-          totalArtistRevenue: 0,
-          uniqueTracks: [],
-          uniqueArtists: [],
-          uniquePeriods: []
-        },
-        processedFiles: [],
-        error: 'No files found in request'
-      };
+      throw new Error('No files found in request');
     }
 
     if (!selectedTemplate) {
-      return {
-        summary: {
-          totalFiles: 0,
-          totalRecords: 0,
-          totalRevenue: 0,
-          totalArtistRevenue: 0,
-          uniqueTracks: [],
-          uniqueArtists: [],
-          uniquePeriods: []
-        },
-        processedFiles: [],
-        error: 'No template selected'
-      };
+      throw new Error('No template selected');
     }
 
     // Find the selected template
     const template = templates.find(t => t.name === selectedTemplate);
     if (!template) {
-      return {
-        summary: {
-          totalFiles: 0,
-          totalRecords: 0,
-          totalRevenue: 0,
-          totalArtistRevenue: 0,
-          uniqueTracks: [],
-          uniqueArtists: [],
-          uniquePeriods: []
-        },
-        processedFiles: [],
-        error: `Template "${selectedTemplate}" not found`
-      };
+      throw new Error(`Template "${selectedTemplate}" not found`);
     }
 
     let totalRevenue = 0;
@@ -154,13 +122,13 @@ const analyzeFiles = async (event) => {
     const errors = [];
 
     // Process each file
-    for (let i = 0; i < files.length; i++) {
+    for (const file of files) {
       try {
-        const fileContent = files[i];
-        const lines = fileContent.split('\n');
+        console.log(`Processing file: ${file.filename}`);
+        const lines = file.content.split('\n');
         
         if (lines.length < 2) {
-          errors.push(`File ${i + 1} is empty or invalid`);
+          errors.push(`File ${file.filename} is empty or invalid`);
           continue;
         }
 
@@ -182,7 +150,7 @@ const analyzeFiles = async (event) => {
           .map(([field]) => template[`${field}_column`]);
 
         if (missingColumns.length > 0) {
-          errors.push(`Missing required columns in file ${i + 1}: ${missingColumns.join(', ')}`);
+          errors.push(`Missing required columns in ${file.filename}: ${missingColumns.join(', ')}`);
           continue;
         }
 
@@ -191,20 +159,27 @@ const analyzeFiles = async (event) => {
         let fileErrors = [];
 
         // Process each data row
-        for (let j = 1; j < lines.length; j++) {
-          const line = lines[j].trim();
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
           if (!line) continue;
 
           const values = line.split(',').map(v => v.trim());
           
           if (values.length !== headers.length) {
-            fileErrors.push(`Line ${j}: Invalid number of columns`);
+            fileErrors.push(`Line ${i}: Invalid number of columns`);
             continue;
           }
 
           const track = values[columnIndexes.track];
           const artist = values[columnIndexes.artist];
-          const revenue = parseFloat(values[columnIndexes.revenue].replace(/[^0-9.-]+/g, '')) || 0;
+          const revenueStr = values[columnIndexes.revenue].replace(/[^0-9.-]+/g, '');
+          const revenue = parseFloat(revenueStr);
+          
+          if (isNaN(revenue)) {
+            console.warn(`Invalid revenue value at line ${i}: ${values[columnIndexes.revenue]}`);
+            continue;
+          }
+          
           const date = values[columnIndexes.date];
 
           if (track) uniqueTracks.add(track);
@@ -217,7 +192,7 @@ const analyzeFiles = async (event) => {
                 uniquePeriods.add(period);
               }
             } catch (error) {
-              fileErrors.push(`Line ${j}: Invalid date format: ${date}`);
+              fileErrors.push(`Line ${i}: Invalid date format: ${date}`);
             }
           }
 
@@ -225,24 +200,30 @@ const analyzeFiles = async (event) => {
           fileRecords++;
         }
 
+        console.log(`File ${file.filename} processed:`, {
+          records: fileRecords,
+          revenue: fileRevenue,
+          errors: fileErrors.length
+        });
+
         totalRevenue += fileRevenue;
         totalRecords += fileRecords;
         totalArtistRevenue += fileRevenue * 0.7;
 
         processedFiles.push({
-          filename: `File ${i + 1}`,
+          filename: file.filename,
           records: fileRecords,
           revenue: fileRevenue,
           status: fileErrors.length > 0 ? 'partial' : 'success',
           errors: fileErrors
         });
       } catch (error) {
-        console.error(`Error processing file ${i + 1}:`, error);
-        errors.push(`Error processing file ${i + 1}: ${error.message}`);
+        console.error(`Error processing file ${file.filename}:`, error);
+        errors.push(`Error processing file ${file.filename}: ${error.message}`);
       }
     }
 
-    return {
+    const result = {
       summary: {
         totalFiles: files.length,
         totalRecords,
@@ -255,21 +236,12 @@ const analyzeFiles = async (event) => {
       processedFiles,
       errors: errors.length > 0 ? errors : undefined
     };
+
+    console.log('Analysis result:', result);
+    return result;
   } catch (error) {
     console.error('Error analyzing files:', error);
-    return {
-      summary: {
-        totalFiles: 0,
-        totalRecords: 0,
-        totalRevenue: 0,
-        totalArtistRevenue: 0,
-        uniqueTracks: [],
-        uniqueArtists: [],
-        uniquePeriods: []
-      },
-      processedFiles: [],
-      error: error.message || 'Internal server error'
-    };
+    throw error;
   }
 };
 
