@@ -1,19 +1,14 @@
 [build]
-  base = "."
-  command = "npm install && cd server/functions && npm install && cd ../../ && npm run build"
+  command = "npm install && cd client && npm install && npm run build"
   publish = "client/build"
   functions = "server/functions"
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["express"]
-
-[functions.server]
-  included_files = ["server/functions/**"]
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/server/:splat"
+  to = "/.netlify/functions/:splat"
   status = 200
   force = true
 

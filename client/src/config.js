@@ -3,8 +3,8 @@ const getApiUrl = () => {
     return process.env.REACT_APP_API_URL;
   }
   return process.env.NODE_ENV === 'development' 
-    ? 'http://localhost:8888/api'
-    : '/api';
+    ? 'http://localhost:8888/.netlify/functions'
+    : '/.netlify/functions';
 };
 
 const config = {
@@ -16,8 +16,7 @@ const config = {
   },
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest'
+    'Accept': 'application/json'
   }
 };
 
