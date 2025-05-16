@@ -31,14 +31,12 @@
   node_bundler = "esbuild"
   included_files = ["netlify/functions/**"]
   external_node_modules = ["@netlify/functions"]
+  node_options = "--max-old-space-size=8192"
 
 [functions.server]
   included_files = []
   external_node_modules = []
   node_bundler = "esbuild"
-
-[functions.server.environment]
-  MAX_PAYLOAD_SIZE = "100mb"
 
 [[headers]]
   for = "/*"
@@ -54,4 +52,5 @@
   NODE_VERSION = "18"
   NPM_VERSION = "9"
   CI = "false"
-  NODE_ENV = "production" 
+  NODE_ENV = "production"
+  NODE_OPTIONS = "--max-old-space-size=8192" 
