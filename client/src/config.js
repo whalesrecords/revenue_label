@@ -16,7 +16,8 @@ const config = {
   },
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json'
+    'Accept': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest'
   }
 };
 

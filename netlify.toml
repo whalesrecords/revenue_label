@@ -6,9 +6,13 @@
 
 [functions]
   node_bundler = "esbuild"
+  external_node_modules = ["express"]
+
+[functions.server]
+  included_files = ["server/functions/**"]
 
 [[redirects]]
-  from = "/.netlify/functions/server/*"
+  from = "/api/*"
   to = "/.netlify/functions/server/:splat"
   status = 200
   force = true
@@ -23,4 +27,12 @@
   NODE_VERSION = "18"
   NPM_VERSION = "9"
   CI = "false"
-  NODE_ENV = "production" 
+  NODE_ENV = "production"
+
+[[headers]]
+  for = "/*"
+    [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With"
+    Access-Control-Max-Age = "86400" 
