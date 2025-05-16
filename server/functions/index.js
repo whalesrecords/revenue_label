@@ -3,6 +3,7 @@ const serverless = require('serverless-http');
 const cors = require('cors');
 
 const app = express();
+const router = express.Router();
 
 // Enable CORS
 app.use(cors({
@@ -15,6 +16,10 @@ app.use(cors({
 
 // Parse JSON bodies
 app.use(express.json());
+
+// Use router
+app.use('/.netlify/functions/server', router);
+app.use('/', router);
 
 // Predefined templates
 const predefinedTemplates = {
@@ -46,12 +51,12 @@ const predefinedTemplates = {
 };
 
 // Health check endpoint
-app.get('/', (req, res) => {
+router.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
 // Get templates endpoint
-app.get('/templates', (req, res) => {
+router.get('/templates', (req, res) => {
   try {
     console.log('GET /templates called');
     const templateArray = Object.entries(predefinedTemplates).map(([name, template]) => ({
