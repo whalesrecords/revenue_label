@@ -11,6 +11,33 @@
   targetPort = 3000
   publish = "build"
 
+# Serve static files first
+[[redirects]]
+  from = "/static/*"
+  to = "/static/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/*.js"
+  to = "/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/*.css"
+  to = "/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/manifest.json"
+  to = "/manifest.json"
+  status = 200
+
+[[redirects]]
+  from = "/favicon.ico"
+  to = "/favicon.ico"
+  status = 200
+
+# Then API routes
 [[redirects]]
   from = "/analyze"
   to = "/.netlify/functions/server"
@@ -21,6 +48,7 @@
   to = "/.netlify/functions/:splat"
   status = 200
 
+# Finally, catch-all for SPA
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -54,6 +82,22 @@
     Access-Control-Allow-Credentials = "true"
     Access-Control-Max-Age = "86400"
     Vary = "Origin"
+
+# Add specific headers for static files
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Content-Type = "application/javascript"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Content-Type = "text/css"
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Content-Type = "application/json"
 
 [build.environment]
   NODE_VERSION = "18"
