@@ -17,7 +17,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Grid
 } from '@mui/material';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 
@@ -141,16 +142,20 @@ function ResultsTable({ data }) {
   const [filter, setFilter] = useState('');
   const [selectedQuarter, setSelectedQuarter] = useState('all');
 
-  if (!data || !data.breakdowns) return null;
-
   // Prepare quarters list for filtering
   const quarters = useMemo(() => {
-    const uniqueQuarters = new Set();
-    data.breakdowns.byPeriod.forEach(period => {
-      uniqueQuarters.add(getQuarter(period.period));
-    });
-    return ['all', ...Array.from(uniqueQuarters).sort()];
-  }, [data.breakdowns.byPeriod]);
+    const uniqueQuarters = new Set(['all']);
+    if (data?.breakdowns?.byPeriod) {
+      data.breakdowns.byPeriod.forEach(period => {
+        uniqueQuarters.add(getQuarter(period.period));
+      });
+    }
+    return Array.from(uniqueQuarters).sort();
+  }, [data]);
+
+  if (!data?.breakdowns) {
+    return null;
+  }
 
   const handleSort = (column) => {
     if (sortBy === column) {
