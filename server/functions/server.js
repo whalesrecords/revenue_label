@@ -74,17 +74,53 @@ const analyzeFiles = async (event) => {
     console.log('Selected template:', selectedTemplate);
 
     if (!files.length) {
-      throw new Error('No files found in request');
+      return {
+        summary: {
+          totalFiles: 0,
+          totalRecords: 0,
+          totalRevenue: 0,
+          totalArtistRevenue: 0,
+          uniqueTracks: [],
+          uniqueArtists: [],
+          uniquePeriods: []
+        },
+        processedFiles: [],
+        error: 'No files found in request'
+      };
     }
 
     if (!selectedTemplate) {
-      throw new Error('No template selected');
+      return {
+        summary: {
+          totalFiles: 0,
+          totalRecords: 0,
+          totalRevenue: 0,
+          totalArtistRevenue: 0,
+          uniqueTracks: [],
+          uniqueArtists: [],
+          uniquePeriods: []
+        },
+        processedFiles: [],
+        error: 'No template selected'
+      };
     }
 
     // Find the selected template
     const template = templates.find(t => t.name === selectedTemplate);
     if (!template) {
-      throw new Error(`Template "${selectedTemplate}" not found`);
+      return {
+        summary: {
+          totalFiles: 0,
+          totalRecords: 0,
+          totalRevenue: 0,
+          totalArtistRevenue: 0,
+          uniqueTracks: [],
+          uniqueArtists: [],
+          uniquePeriods: []
+        },
+        processedFiles: [],
+        error: `Template "${selectedTemplate}" not found`
+      };
     }
 
     let totalRevenue = 0;
@@ -94,86 +130,95 @@ const analyzeFiles = async (event) => {
     const uniqueArtists = new Set();
     const uniquePeriods = new Set();
     const processedFiles = [];
+    const errors = [];
 
     // Process each file
     for (let i = 0; i < files.length; i++) {
-      const fileContent = files[i];
-      const lines = fileContent.split('\n');
-      
-      if (lines.length < 2) {
-        console.warn(`Empty or invalid file at index ${i}`);
-        continue;
-      }
-
-      const headers = lines[0].split(',').map(h => h.trim());
-      console.log('File headers:', headers);
-
-      // Validate required columns exist
-      const columnIndexes = {
-        track: headers.indexOf(template.track_column),
-        artist: headers.indexOf(template.artist_column),
-        revenue: headers.indexOf(template.revenue_column),
-        date: headers.indexOf(template.date_column)
-      };
-
-      console.log('Column indexes:', columnIndexes);
-
-      const missingColumns = Object.entries(columnIndexes)
-        .filter(([_, index]) => index === -1)
-        .map(([field]) => template[`${field}_column`]);
-
-      if (missingColumns.length > 0) {
-        throw new Error(`Missing required columns in file ${i + 1}: ${missingColumns.join(', ')}`);
-      }
-
-      let fileRevenue = 0;
-      let fileRecords = 0;
-
-      // Process each data row
-      for (let j = 1; j < lines.length; j++) {
-        const line = lines[j].trim();
-        if (!line) continue;
-
-        const values = line.split(',').map(v => v.trim());
+      try {
+        const fileContent = files[i];
+        const lines = fileContent.split('\n');
         
-        if (values.length !== headers.length) {
-          console.warn(`Skipping malformed line ${j} in file ${i + 1}`);
+        if (lines.length < 2) {
+          errors.push(`File ${i + 1} is empty or invalid`);
           continue;
         }
 
-        const track = values[columnIndexes.track];
-        const artist = values[columnIndexes.artist];
-        const revenue = parseFloat(values[columnIndexes.revenue].replace(/[^0-9.-]+/g, '')) || 0;
-        const date = values[columnIndexes.date];
+        const headers = lines[0].split(',').map(h => h.trim());
+        console.log('File headers:', headers);
 
-        if (track) uniqueTracks.add(track);
-        if (artist) uniqueArtists.add(artist);
-        if (date) {
-          try {
-            const dateObj = new Date(date);
-            if (!isNaN(dateObj.getTime())) {
-              const period = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
-              uniquePeriods.add(period);
-            }
-          } catch (error) {
-            console.warn(`Invalid date format in file ${i + 1}, line ${j}: ${date}`);
-          }
+        // Validate required columns exist
+        const columnIndexes = {
+          track: headers.indexOf(template.track_column),
+          artist: headers.indexOf(template.artist_column),
+          revenue: headers.indexOf(template.revenue_column),
+          date: headers.indexOf(template.date_column)
+        };
+
+        console.log('Column indexes:', columnIndexes);
+
+        const missingColumns = Object.entries(columnIndexes)
+          .filter(([_, index]) => index === -1)
+          .map(([field]) => template[`${field}_column`]);
+
+        if (missingColumns.length > 0) {
+          errors.push(`Missing required columns in file ${i + 1}: ${missingColumns.join(', ')}`);
+          continue;
         }
 
-        fileRevenue += revenue;
-        fileRecords++;
+        let fileRevenue = 0;
+        let fileRecords = 0;
+        let fileErrors = [];
+
+        // Process each data row
+        for (let j = 1; j < lines.length; j++) {
+          const line = lines[j].trim();
+          if (!line) continue;
+
+          const values = line.split(',').map(v => v.trim());
+          
+          if (values.length !== headers.length) {
+            fileErrors.push(`Line ${j}: Invalid number of columns`);
+            continue;
+          }
+
+          const track = values[columnIndexes.track];
+          const artist = values[columnIndexes.artist];
+          const revenue = parseFloat(values[columnIndexes.revenue].replace(/[^0-9.-]+/g, '')) || 0;
+          const date = values[columnIndexes.date];
+
+          if (track) uniqueTracks.add(track);
+          if (artist) uniqueArtists.add(artist);
+          if (date) {
+            try {
+              const dateObj = new Date(date);
+              if (!isNaN(dateObj.getTime())) {
+                const period = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+                uniquePeriods.add(period);
+              }
+            } catch (error) {
+              fileErrors.push(`Line ${j}: Invalid date format: ${date}`);
+            }
+          }
+
+          fileRevenue += revenue;
+          fileRecords++;
+        }
+
+        totalRevenue += fileRevenue;
+        totalRecords += fileRecords;
+        totalArtistRevenue += fileRevenue * 0.7;
+
+        processedFiles.push({
+          filename: `File ${i + 1}`,
+          records: fileRecords,
+          revenue: fileRevenue,
+          status: fileErrors.length > 0 ? 'partial' : 'success',
+          errors: fileErrors
+        });
+      } catch (error) {
+        console.error(`Error processing file ${i + 1}:`, error);
+        errors.push(`Error processing file ${i + 1}: ${error.message}`);
       }
-
-      totalRevenue += fileRevenue;
-      totalRecords += fileRecords;
-      totalArtistRevenue += fileRevenue * 0.7;
-
-      processedFiles.push({
-        filename: `File ${i + 1}`,
-        records: fileRecords,
-        revenue: fileRevenue,
-        status: 'success'
-      });
     }
 
     return {
@@ -186,16 +231,23 @@ const analyzeFiles = async (event) => {
         uniqueArtists: Array.from(uniqueArtists),
         uniquePeriods: Array.from(uniquePeriods)
       },
-      processedFiles
+      processedFiles,
+      errors: errors.length > 0 ? errors : undefined
     };
   } catch (error) {
     console.error('Error analyzing files:', error);
     return {
-      statusCode: 500,
-      headers: corsHeaders,
-      body: JSON.stringify({
-        error: error.message || 'Internal server error'
-      })
+      summary: {
+        totalFiles: 0,
+        totalRecords: 0,
+        totalRevenue: 0,
+        totalArtistRevenue: 0,
+        uniqueTracks: [],
+        uniqueArtists: [],
+        uniquePeriods: []
+      },
+      processedFiles: [],
+      error: error.message || 'Internal server error'
     };
   }
 };
