@@ -330,3 +330,6 @@ venv/
 .vscode/
 *.swp
 *.swo
+
+# Local Netlify folder
+.netlify

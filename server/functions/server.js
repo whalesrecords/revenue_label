@@ -52,6 +52,7 @@ const corsHeaders = {
 // Fonction pour analyser les fichiers
 const analyzeFiles = async (event) => {
   console.log('Starting file analysis');
+  console.log('Content-Type:', event.headers['content-type']);
   
   try {
     if (!event.body) {
@@ -59,6 +60,8 @@ const analyzeFiles = async (event) => {
     }
 
     const body = Buffer.from(event.body, 'base64');
+    console.log('Request body size:', body.length);
+
     if (body.length === 0) {
       throw new Error('Empty request body');
     }
@@ -73,39 +76,65 @@ const analyzeFiles = async (event) => {
       throw new Error('No boundary found in content type');
     }
     const boundary = boundaryMatch[1] || boundaryMatch[2];
+    console.log('Found boundary:', boundary);
 
     const bodyStr = body.toString('utf-8');
+    console.log('Body preview:', bodyStr.substring(0, 200));
+
     const parts = bodyStr.split(`--${boundary}`).filter(part => part.trim() && !part.includes('--\r\n'));
+    console.log('Number of parts found:', parts.length);
 
     const files = [];
     let selectedTemplate = null;
 
     for (const part of parts) {
       const [headerSection, ...contentSections] = part.split(/\r?\n\r?\n/);
-      if (!headerSection || contentSections.length === 0) continue;
+      if (!headerSection || contentSections.length === 0) {
+        console.log('Skipping invalid part - no headers or content');
+        continue;
+      }
 
       const content = contentSections.join('\n\n').trim();
-      if (!content) continue;
+      if (!content) {
+        console.log('Skipping empty content');
+        continue;
+      }
 
       const nameMatch = headerSection.match(/name="([^"]+)"/);
       const filenameMatch = headerSection.match(/filename="([^"]+)"/);
 
-      if (!nameMatch) continue;
+      if (!nameMatch) {
+        console.log('Skipping part with no name attribute');
+        continue;
+      }
+
       const partName = nameMatch[1];
+      console.log('Processing part:', partName);
 
       if (partName === 'files[]' && filenameMatch) {
         const filename = filenameMatch[1];
-        const lines = content.split(/\r?\n/).map(line => line.trim()).filter(line => line);
+        console.log('Processing file:', filename);
         
-        if (lines.length < 2 || !lines[0].includes(',')) continue;
+        const lines = content.split(/\r?\n/).map(line => line.trim()).filter(line => line);
+        console.log('File lines count:', lines.length);
+        
+        if (lines.length < 2 || !lines[0].includes(',')) {
+          console.log('Skipping invalid CSV file:', filename);
+          continue;
+        }
+
+        const headers = lines[0].split(',').map(h => h.trim().replace(/(^"|"$)/g, ''));
+        console.log('CSV headers:', headers);
 
         files.push({
           content: lines.join('\n'),
           filename,
-          headers: lines[0].split(',').map(h => h.trim().replace(/(^"|"$)/g, ''))
+          headers
         });
+        console.log('Added file:', filename);
       } else if (partName === 'template') {
         selectedTemplate = content.trim();
+        console.log('Selected template:', selectedTemplate);
       }
     }
 
@@ -121,6 +150,7 @@ const analyzeFiles = async (event) => {
     if (!template) {
       throw new Error(`Template "${selectedTemplate}" not found`);
     }
+    console.log('Using template:', template);
 
     const trackMap = new Map();
     const artistMap = new Map();
@@ -234,6 +264,7 @@ const analyzeFiles = async (event) => {
     return result;
   } catch (error) {
     console.error('Error in analyzeFiles:', error);
+    console.error('Error stack:', error.stack);
     throw error;
   }
 };
@@ -258,6 +289,7 @@ const updateTemplate = async (event) => {
 };
 
 const sendResponse = (statusCode, body) => {
+  console.log('Sending response:', { statusCode, body });
   return {
     statusCode,
     headers: {
@@ -273,11 +305,18 @@ const sendResponse = (statusCode, body) => {
 };
 
 const sendError = (statusCode, error) => {
+  console.error('Sending error response:', { statusCode, error });
   const errorMessage = error instanceof Error ? error.message : String(error);
   return sendResponse(statusCode, { error: errorMessage });
 };
 
 exports.handler = async (event) => {
+  console.log('Received request:', {
+    method: event.httpMethod,
+    path: event.path,
+    headers: event.headers
+  });
+
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
@@ -309,6 +348,7 @@ exports.handler = async (event) => {
           const result = await analyzeFiles(event);
           return sendResponse(200, result);
         } catch (error) {
+          console.error('Error in file analysis:', error);
           return sendError(400, error);
         }
 
@@ -316,7 +356,8 @@ exports.handler = async (event) => {
         return sendError(405, 'Method not allowed');
     }
   } catch (error) {
-    console.error('Unhandled error:', error);
+    console.error('Unhandled server error:', error);
+    console.error('Error stack:', error.stack);
     return sendError(500, 'Internal server error');
   }
 }; 

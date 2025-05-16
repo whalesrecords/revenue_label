@@ -15,19 +15,16 @@ const getBaseUrl = () => {
 };
 
 const config = {
-  API_URL: `${getBaseUrl()}/.netlify/functions/server`,
+  API_URL: '/.netlify/functions',
   TEMPLATE_ENDPOINTS: {
     get: '/templates',
-    create: '/template',
-    update: '/template',
-    delete: '/template'
+    create: '/templates',
+    update: '/templates',
+    delete: '/templates'
   },
   DEFAULT_HEADERS: {
-    'Accept': 'application/json'
-  },
-  JSON_HEADERS: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
+    'Accept': 'application/json',
+    'Content-Type': 'application/json'
   },
   environment
 };

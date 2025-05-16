@@ -154,7 +154,19 @@ function ResultsTable({ data }) {
   }, [data]);
 
   if (!data?.breakdowns) {
-    return null;
+    return (
+      <Paper sx={{ p: 3, mt: 2 }}>
+        <Typography color="error" variant="h6" gutterBottom>
+          Erreur d'affichage des résultats
+        </Typography>
+        <Typography variant="body1">
+          Les données reçues ne sont pas dans le format attendu.
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          Format reçu : {JSON.stringify(data, null, 2)}
+        </Typography>
+      </Paper>
+    );
   }
 
   const handleSort = (column) => {

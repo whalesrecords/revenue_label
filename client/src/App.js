@@ -136,25 +136,27 @@ function App() {
           credentials: 'omit'
         });
         
-        if (!response.ok) {
-          let errorMessage = 'Failed to load templates';
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.message || errorData.error || `Server error: ${response.status}`;
-          } catch (e) {
-            console.error('Error parsing error response:', e);
-            errorMessage = await response.text();
-          }
-          throw new Error(errorMessage);
+        const responseText = await response.text();
+        console.info('Raw response:', responseText);
+        
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.error('Error parsing response:', e);
+          throw new Error(`Failed to parse response: ${responseText}`);
         }
 
-        const data = await response.json();
-        console.info('Received templates:', data);
-        
+        if (!response.ok) {
+          throw new Error(data?.error || `Server error: ${response.status}`);
+        }
+
         if (!Array.isArray(data)) {
+          console.error('Invalid data format:', data);
           throw new Error('Invalid templates data format received');
         }
         
+        console.info('Received templates:', data);
         setTemplates(data);
         setError(null);
       } catch (err) {
@@ -295,15 +297,18 @@ function App() {
       const response = await fetch(`${config.API_URL}/analyze`, {
         method: 'POST',
         body: formData,
-        headers: config.DEFAULT_HEADERS,
         mode: 'cors',
         credentials: 'omit'
       });
 
+      const responseText = await response.text();
       let responseData;
+      
       try {
-        responseData = await response.json();
+        responseData = JSON.parse(responseText);
       } catch (e) {
+        console.error('JSON parse error:', e);
+        console.error('Raw response:', responseText);
         throw new Error('Failed to parse server response');
       }
 
@@ -331,27 +336,39 @@ function App() {
         throw new Error('Template name is required');
       }
 
+      // Validate required fields
       const requiredFields = ['track_column', 'artist_column', 'revenue_column', 'date_column'];
       const missingFields = requiredFields.filter(field => !template[field]);
       if (missingFields.length > 0) {
         throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
       }
 
+      console.log('Saving template:', template);
       const response = await fetch(`${config.API_URL}${config.TEMPLATE_ENDPOINTS.create}`, {
         method: 'POST',
-        headers: config.JSON_HEADERS,
+        headers: config.DEFAULT_HEADERS,
         body: JSON.stringify(template),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData?.error || 'Failed to save template');
+        let errorMessage = 'Failed to save template';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || `Server error: ${response.status}`;
+        } catch (e) {
+          console.error('Error parsing error response:', e);
+          errorMessage = await response.text();
+        }
+        throw new Error(errorMessage);
       }
 
       const savedTemplate = await response.json();
+      console.log('Template saved successfully:', savedTemplate);
       
+      // Update templates list with type checking
       setTemplates(prev => {
         if (!Array.isArray(prev)) {
+          console.warn('Previous templates state was not an array, resetting to empty array');
           return [savedTemplate];
         }
         const updated = prev.filter(t => t.name !== template.name);
@@ -363,6 +380,7 @@ function App() {
     } catch (err) {
       console.error('Error saving template:', err);
       setError(`Failed to save template: ${err.message}`);
+      // Ne pas fermer le dialog en cas d'erreur pour permettre à l'utilisateur de corriger
     }
   };
 
@@ -375,13 +393,12 @@ function App() {
     try {
       const response = await fetch(`${config.API_URL}/template`, {
         method: 'PUT',
-        headers: config.JSON_HEADERS,
+        headers: config.DEFAULT_HEADERS,
         body: JSON.stringify(editedTemplate)
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData?.error || 'Failed to update template');
+        throw new Error('Failed to update template');
       }
 
       const updatedTemplates = await response.json();

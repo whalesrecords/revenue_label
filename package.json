@@ -10,13 +10,17 @@
     "install:client": "cd client && npm install",
     "install:server": "cd server && npm install",
     "build:client": "cd client && npm run build",
-    "build:server": "cd server && npm install",
-    "clean": "rm -rf functions && rm -rf .netlify && rm -rf server/functions/node_modules",
+    "build:server": "cd server && npm run build",
+    "clean": "rm -rf server/functions-build && rm -rf .netlify",
     "prebuild": "npm run clean",
     "build": "npm run install:client && npm run install:server && npm run build:client && npm run build:server",
-    "start": "cd client && npm start"
+    "start": "cd client && npm start",
+    "dev": "netlify dev"
   },
   "dependencies": {
     "@netlify/functions": "^3.1.8"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
   }
 }
