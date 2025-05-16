@@ -1,15 +1,20 @@
 [build]
-  base = "."
-  command = "npm run build"
-  publish = "client/build"
-  functions = "server/functions-build"
+  base = "/"
+  command = "npm install && npm run build"
+  publish = "build"
+  functions = "netlify/functions"
 
 [dev]
   framework = "#custom"
   command = "npm run start"
   port = 8888
   targetPort = 3000
-  publish = "client/build"
+  publish = "build"
+
+[[redirects]]
+  from = "/analyze"
+  to = "/.netlify/functions/server"
+  status = 200
 
 [[redirects]]
   from = "/api/*"
@@ -24,7 +29,7 @@
 
 [functions]
   node_bundler = "esbuild"
-  included_files = ["server/functions/**"]
+  included_files = ["netlify/functions/**"]
   external_node_modules = ["@netlify/functions"]
 
 [functions.server]

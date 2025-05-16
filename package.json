@@ -2,25 +2,35 @@
   "name": "csv-merge",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "client",
-    "server"
-  ],
   "scripts": {
-    "install:client": "cd client && npm install",
-    "install:server": "cd server && npm install",
-    "build:client": "cd client && npm run build",
-    "build:server": "cd server && npm run build",
-    "clean": "rm -rf server/functions-build && rm -rf .netlify",
+    "clean": "rm -rf build && rm -rf .netlify",
     "prebuild": "npm run clean",
-    "build": "npm run install:client && npm run install:server && npm run build:client && npm run build:server",
-    "start": "cd client && npm start",
+    "build": "react-scripts build",
+    "start": "react-scripts start",
     "dev": "netlify dev"
   },
   "dependencies": {
-    "@netlify/functions": "^3.1.8"
+    "@netlify/functions": "^3.1.8",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "@mui/material": "^5.0.0",
+    "@mui/icons-material": "^5.0.0",
+    "react-dropzone": "^11.3.4"
   },
   "devDependencies": {
     "netlify-cli": "^17.0.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   }
 }

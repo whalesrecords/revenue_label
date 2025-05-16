@@ -15,12 +15,13 @@ const getBaseUrl = () => {
 };
 
 const config = {
-  API_URL: '/.netlify/functions',
+  API_URL: '',
+  ANALYZE_ENDPOINT: '/analyze',
   TEMPLATE_ENDPOINTS: {
-    get: '/templates',
-    create: '/templates',
-    update: '/templates',
-    delete: '/templates'
+    get: '/.netlify/functions/templates',
+    create: '/.netlify/functions/templates',
+    update: '/.netlify/functions/templates',
+    delete: '/.netlify/functions/templates'
   },
   DEFAULT_HEADERS: {
     'Accept': 'application/json',
