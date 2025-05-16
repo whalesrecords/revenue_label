@@ -17,6 +17,9 @@
     "csv-stringify"
   ]
 
+[functions.timeout]
+  duration = 30
+
 [functions.server]
   maxDuration = 30
 
