@@ -137,12 +137,15 @@ function App() {
           },
           mode: 'cors',
           credentials: 'omit'
+        }).catch(error => {
+          console.error('Network error:', error);
+          throw new Error(`Network error: ${error.message}`);
         });
         
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Server error response:', errorText);
-          throw new Error(`Server error: ${response.status}`);
+          throw new Error(`Server error (${response.status}): ${errorText}`);
         }
 
         const responseText = await response.text();
@@ -153,7 +156,8 @@ function App() {
           data = JSON.parse(responseText);
         } catch (e) {
           console.error('Error parsing response:', e);
-          throw new Error(`Failed to parse response: ${responseText}`);
+          console.error('Raw response:', responseText);
+          throw new Error(`Failed to parse response: ${e.message}`);
         }
 
         if (!Array.isArray(data)) {
