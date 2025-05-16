@@ -179,134 +179,8 @@ const predefinedTemplates = {
   }
 };
 
-// Initialize templates with predefined ones and load from file if exists
+// Initialize templates with predefined ones
 let templates = { ...predefinedTemplates };
-const templatesFile = path.join(__dirname, 'templates.json');
-
-try {
-  if (fs.existsSync(templatesFile)) {
-    const savedTemplates = JSON.parse(fs.readFileSync(templatesFile, 'utf8'));
-    templates = { ...templates, ...savedTemplates };
-  }
-} catch (error) {
-  console.error('Error loading templates:', error);
-}
-
-// Function to save templates to file
-const saveTemplatesToFile = () => {
-  try {
-    fs.writeFileSync(templatesFile, JSON.stringify(templates, null, 2));
-  } catch (error) {
-    console.error('Error saving templates to file:', error);
-  }
-};
-
-console.log('Templates initialized:', Object.keys(templates));
-
-// Helper functions
-const cleanRevenueValue = (value) => {
-  if (value === null || value === undefined || value === '') return 0.0;
-  try {
-    if (typeof value === 'number') return parseFloat(value);
-    let valueStr = String(value)
-      .trim()
-      .replace(/[€$]/g, '')
-      .replace(/\s/g, '')
-      .replace(/,/g, '.')
-      .replace(/[^0-9.-]/g, '');
-    if (value.includes('(') && value.includes(')')) valueStr = '-' + valueStr;
-    const result = parseFloat(valueStr);
-    return isNaN(result) ? 0.0 : result;
-  } catch (error) {
-    console.error('Error cleaning revenue value:', error);
-    return 0.0;
-  }
-};
-
-const cleanupMemory = () => {
-  if (global.gc) {
-    global.gc();
-  }
-};
-
-const parseCSVContent = async (fileContent, fileName) => {
-  return new Promise((resolve, reject) => {
-    const records = [];
-    let headersParsed = false;
-    let rowCount = 0;
-    const MAX_ROWS = 500000; // Augmenter la limite de lignes
-
-    const parser = parse({
-      columns: true,
-      skip_empty_lines: true,
-      trim: true,
-      relaxColumnCount: true,
-      relaxQuotes: true,
-      skipEmptyLines: true,
-      bom: true,
-      chunk_size: 2 * 1024 * 1024, // Augmenter à 2MB par chunk
-      on_record: (record) => {
-        // Nettoyage et validation basique des données
-        const cleanRecord = {};
-        Object.keys(record).forEach(key => {
-          if (typeof record[key] === 'string') {
-            cleanRecord[key] = record[key].trim();
-          } else {
-            cleanRecord[key] = record[key];
-          }
-        });
-        return cleanRecord;
-      }
-    });
-
-    parser.on('readable', function() {
-      let record;
-      while (rowCount < MAX_ROWS && (record = parser.read())) {
-        try {
-          if (Object.keys(record).length > 0) {
-            records.push(record);
-            rowCount++;
-
-            // Nettoyage périodique de la mémoire
-            if (rowCount % 10000 === 0) {
-              cleanupMemory();
-            }
-          }
-        } catch (err) {
-          console.warn(`Warning: Invalid record in ${fileName} at row ${rowCount + 1}`);
-        }
-      }
-    });
-
-    parser.on('error', (err) => {
-      console.error(`Error parsing ${fileName}:`, err);
-      cleanupMemory();
-      reject(new Error(`Failed to parse ${fileName}: ${err.message}`));
-    });
-
-    parser.on('end', () => {
-      if (rowCount >= MAX_ROWS) {
-        console.warn(`Warning: File ${fileName} exceeded maximum row limit of ${MAX_ROWS}`);
-      }
-      cleanupMemory();
-      resolve(records);
-    });
-
-    parser.write(fileContent);
-    parser.end();
-  });
-};
-
-// Helper function to safely extract field value
-const extractField = (record, fieldNames, defaultValue = '') => {
-  for (const name of fieldNames) {
-    const value = record[name];
-    if (value && String(value).trim()) {
-      return String(value).trim();
-    }
-  }
-  return defaultValue;
-};
 
 // Routes
 router.get('/', (req, res) => {
@@ -322,7 +196,7 @@ router.get('/templates', async (req, res) => {
     console.log('Request headers:', req.headers);
     console.log('Current templates:', templates);
 
-    // Set proper headers before any response
+    // Set proper headers
     res.set({
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
@@ -336,22 +210,6 @@ router.get('/templates', async (req, res) => {
       return res.status(200).end();
     }
 
-    // Ensure templates is properly initialized
-    if (!templates || typeof templates !== 'object') {
-      console.warn('Templates not properly initialized, reinitializing...');
-      templates = { ...predefinedTemplates };
-      
-      // Try to load from file
-      try {
-        if (fs.existsSync(templatesFile)) {
-          const savedTemplates = JSON.parse(fs.readFileSync(templatesFile, 'utf8'));
-          templates = { ...templates, ...savedTemplates };
-        }
-      } catch (loadError) {
-        console.error('Error loading templates from file:', loadError);
-      }
-    }
-
     // Convert templates to array format
     const templateArray = Object.entries(templates).map(([name, template]) => ({
       name,
@@ -362,7 +220,6 @@ router.get('/templates', async (req, res) => {
     return res.json(templateArray);
   } catch (error) {
     console.error('Error in /templates route:', error);
-    // Ensure error response is also JSON
     return res.status(500).json({
       error: 'Failed to get templates',
       message: error.message,
@@ -394,16 +251,13 @@ router.post('/templates', express.json(), (req, res) => {
       });
     }
 
-    // Add the template
+    // Add the template to memory
     templates[name] = {
       ...templateData,
       currency: templateData.currency || 'EUR'
     };
 
-    // Save to file
-    saveTemplatesToFile();
-
-    console.log('Template saved:', name);
+    console.log('Template saved in memory:', name);
     res.json({ name, ...templates[name] });
   } catch (error) {
     console.error('Error saving template:', error);
@@ -638,16 +492,50 @@ const handler = serverless(app, {
 // Export the handler with proper error handling
 exports.handler = async (event, context) => {
   try {
+    console.log('Handler called with event:', {
+      path: event.path,
+      httpMethod: event.httpMethod,
+      headers: event.headers,
+      queryStringParameters: event.queryStringParameters
+    });
+
     // Set the context callbackWaitsForEmptyEventLoop to false
     context.callbackWaitsForEmptyEventLoop = false;
-    return await handler(event, context);
+
+    // Add CORS headers to all responses
+    const response = await handler(event, context);
+    
+    console.log('Handler response:', {
+      statusCode: response.statusCode,
+      headers: response.headers,
+      body: response.body ? JSON.parse(response.body) : undefined
+    });
+
+    return {
+      ...response,
+      headers: {
+        ...response.headers,
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Requested-With',
+        'Access-Control-Max-Age': '86400'
+      }
+    };
   } catch (error) {
     console.error('Handler error:', error);
     return {
       statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Requested-With',
+        'Access-Control-Max-Age': '86400'
+      },
       body: JSON.stringify({
         error: 'Internal Server Error',
-        message: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred'
+        message: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred',
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       })
     };
   }

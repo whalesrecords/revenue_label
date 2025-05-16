@@ -1,5 +1,5 @@
 {
-  "name": "csv-merge-server",
+  "name": "server-function",
   "version": "1.0.0",
   "description": "Server functions for CSV revenue analysis",
   "main": "server.js",
