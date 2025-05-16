@@ -226,67 +226,105 @@ function App() {
     };
   };
 
+  const transformServerResponse = (response) => {
+    if (!response || !response.breakdowns) return null;
+
+    // Transform track data
+    const trackSummary = response.breakdowns.byTrack.map(track => ({
+      Track: track.track,
+      Artist: track.artist,
+      TotalRevenue: `${track.revenue.toFixed(2)} EUR`,
+      ArtistRevenue: `${(track.revenue * 0.7).toFixed(2)} EUR`
+    }));
+
+    // Transform artist data
+    const artistSummary = response.breakdowns.byArtist.map(artist => ({
+      Artist: artist.artist,
+      TotalRevenue: `${artist.revenue.toFixed(2)} EUR`,
+      ArtistRevenue: `${(artist.revenue * 0.7).toFixed(2)} EUR`,
+      Tracks: artist.trackCount,
+      TrackList: artist.tracks.join(', ')
+    }));
+
+    // Transform period data
+    const periodSummary = response.breakdowns.byPeriod.map(period => ({
+      Period: period.period,
+      TotalRevenue: `${period.revenue.toFixed(2)} EUR`,
+      ArtistRevenue: `${(period.revenue * 0.7).toFixed(2)} EUR`,
+      Tracks: period.trackCount,
+      TrackList: period.tracks.join(', ')
+    }));
+
+    return {
+      summary: {
+        totalFiles: response.summary.totalFiles,
+        totalRecords: response.summary.totalRecords,
+        totalRevenue: response.summary.totalRevenue,
+        totalArtistRevenue: response.summary.totalArtistRevenue
+      },
+      trackSummary,
+      artistSummary,
+      periodSummary,
+      errors: response.errors
+    };
+  };
+
   const handleAnalyze = async () => {
-    if (!selectedTemplate) {
-      setError('Please select a template first');
+    if (files.length === 0) {
+      setError('Please select at least one file to analyze');
       return;
     }
 
-    if (!files.length) {
-      setError('Please select at least one file');
+    if (!selectedTemplate) {
+      setError('Please select a template');
       return;
     }
 
     setLoading(true);
     setError(null);
     setAnalysisResults(null);
-    
-    try {
-      // Traiter tous les fichiers en une seule requête
-      const formData = new FormData();
-      formData.append('template', selectedTemplate);
-      
-      files.forEach(file => {
-        console.info('Adding file:', file.name, file.size);
-        formData.append('files', file);
-      });
 
-      console.info('Sending request with template:', selectedTemplate);
-      const response = await fetch(config.API_URL, {
+    try {
+      const formData = new FormData();
+      
+      // Add all files with the correct field name
+      files.forEach((file, index) => {
+        formData.append('files[]', file);
+      });
+      
+      formData.append('template', selectedTemplate);
+
+      const response = await fetch(`${config.API_URL}/analyze`, {
         method: 'POST',
         body: formData,
-        headers: {
-          'Accept': 'application/json'
-        },
         mode: 'cors',
         credentials: 'omit'
       });
 
-      console.info('Response status:', response.status);
-      console.info('Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      let result;
-      const text = await response.text();
-      console.debug('Raw response:', text);
-      
-      try {
-        result = JSON.parse(text);
-      } catch (e) {
-        console.error('Failed to parse response as JSON:', text);
-        throw new Error('Server returned invalid JSON response');
+      if (!response.ok) {
+        let errorMessage = 'Failed to analyze files';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || `Server error: ${response.status}`;
+        } catch (e) {
+          console.error('Error parsing error response:', e);
+          errorMessage = await response.text();
+        }
+        throw new Error(errorMessage);
       }
-      
-      console.info('Parsed result:', result);
 
-      if (!response.ok || result.error) {
-        throw new Error(result.error || `Server error: ${response.status}`);
+      const result = await response.json();
+      console.log('Analysis result:', result);
+
+      if (!result || typeof result !== 'object') {
+        throw new Error('Invalid response format from server');
       }
 
       setAnalysisResults(result);
       setTabIndex(1); // Switch to results tab
     } catch (err) {
       console.error('Error analyzing files:', err);
-      setError(err.message || 'Erreur lors de l\'analyse des fichiers');
+      setError(`Failed to analyze files: ${err.message}`);
     } finally {
       setLoading(false);
     }

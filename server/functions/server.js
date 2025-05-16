@@ -52,185 +52,153 @@ const corsHeaders = {
 // Fonction pour analyser les fichiers
 const analyzeFiles = async (event) => {
   console.log('Starting file analysis');
-  console.log('Content-Type:', event.headers['content-type']);
   
   try {
     if (!event.body) {
-      throw new Error('No data provided');
+      throw new Error('No data provided in request body');
     }
 
-    // Since we're receiving multipart/form-data, the body will be a Buffer
     const body = Buffer.from(event.body, 'base64');
-    console.log('Decoded body size:', body.length);
+    if (body.length === 0) {
+      throw new Error('Empty request body');
+    }
 
-    // Get the boundary from the content type
     const contentType = event.headers['content-type'];
     if (!contentType || !contentType.includes('multipart/form-data')) {
       throw new Error('Invalid content type. Expected multipart/form-data');
     }
 
-    const boundary = contentType.split('boundary=')[1];
-    if (!boundary) {
+    const boundaryMatch = contentType.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
+    if (!boundaryMatch) {
       throw new Error('No boundary found in content type');
     }
+    const boundary = boundaryMatch[1] || boundaryMatch[2];
 
-    console.log('Found boundary:', boundary);
     const bodyStr = body.toString('utf-8');
-    const parts = bodyStr.split(`--${boundary}`);
-    console.log('Found parts:', parts.length);
+    const parts = bodyStr.split(`--${boundary}`).filter(part => part.trim() && !part.includes('--\r\n'));
 
     const files = [];
     let selectedTemplate = null;
 
-    // Parse multipart form data
     for (const part of parts) {
-      if (!part.trim() || part === '--') continue;
+      const [headerSection, ...contentSections] = part.split(/\r?\n\r?\n/);
+      if (!headerSection || contentSections.length === 0) continue;
 
-      const [headers, ...contentParts] = part.split('\r\n\r\n');
-      const content = contentParts.join('\r\n\r\n');
+      const content = contentSections.join('\n\n').trim();
+      if (!content) continue;
 
-      console.log('Processing part headers:', headers);
+      const nameMatch = headerSection.match(/name="([^"]+)"/);
+      const filenameMatch = headerSection.match(/filename="([^"]+)"/);
 
-      if (headers.includes('name="files"')) {
-        console.log('Found file part');
-        const filename = headers.match(/filename="([^"]+)"/)?.[1];
-        console.log('Filename:', filename);
+      if (!nameMatch) continue;
+      const partName = nameMatch[1];
+
+      if (partName === 'files[]' && filenameMatch) {
+        const filename = filenameMatch[1];
+        const lines = content.split(/\r?\n/).map(line => line.trim()).filter(line => line);
         
-        if (content) {
-          files.push({
-            content: content.trim(),
-            filename: filename || `File ${files.length + 1}`
-          });
-        }
-      } else if (headers.includes('name="template"')) {
-        console.log('Found template part');
+        if (lines.length < 2 || !lines[0].includes(',')) continue;
+
+        files.push({
+          content: lines.join('\n'),
+          filename,
+          headers: lines[0].split(',').map(h => h.trim().replace(/(^"|"$)/g, ''))
+        });
+      } else if (partName === 'template') {
         selectedTemplate = content.trim();
-        console.log('Selected template:', selectedTemplate);
       }
     }
 
     if (!files.length) {
-      throw new Error('No files found in request');
+      throw new Error('No valid CSV files found');
     }
 
     if (!selectedTemplate) {
       throw new Error('No template selected');
     }
 
-    // Find the selected template
     const template = templates.find(t => t.name === selectedTemplate);
     if (!template) {
       throw new Error(`Template "${selectedTemplate}" not found`);
     }
 
+    const trackMap = new Map();
+    const artistMap = new Map();
+    const periodMap = new Map();
+    
     let totalRevenue = 0;
     let totalArtistRevenue = 0;
     let totalRecords = 0;
-    const uniqueTracks = new Set();
-    const uniqueArtists = new Set();
-    const uniquePeriods = new Set();
-    const processedFiles = [];
-    const errors = [];
 
-    // Process each file
     for (const file of files) {
-      try {
-        console.log(`Processing file: ${file.filename}`);
-        const lines = file.content.split('\n');
+      const lines = file.content.split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
+      
+      const columns = {
+        track: headers.indexOf(template.track_column),
+        artist: template.artist_column ? headers.indexOf(template.artist_column) : -1,
+        revenue: headers.indexOf(template.revenue_column),
+        date: headers.indexOf(template.date_column)
+      };
+
+      if (columns.track === -1 || columns.revenue === -1 || columns.date === -1) {
+        console.warn(`Skipping file ${file.filename}: Missing required columns`);
+        continue;
+      }
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const values = line.split(',').map(v => v.trim());
+        if (values.length !== headers.length) continue;
+
+        const track = values[columns.track];
+        const artist = columns.artist !== -1 ? values[columns.artist] : 'Unknown Artist';
         
-        if (lines.length < 2) {
-          errors.push(`File ${file.filename} is empty or invalid`);
-          continue;
+        let revenue = parseFloat(values[columns.revenue].replace(/[^\d.-]/g, ''));
+        if (isNaN(revenue) || revenue < 0) continue;
+        
+        if (template.currency === 'USD') {
+          revenue *= 0.92;
         }
+        revenue = parseFloat(revenue.toFixed(2));
 
-        const headers = lines[0].split(',').map(h => h.trim());
-        console.log('File headers:', headers);
+        const dateStr = values[columns.date];
+        const dateObj = new Date(dateStr);
+        if (isNaN(dateObj.getTime())) continue;
+        
+        const period = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
 
-        // Validate required columns exist
-        const columnIndexes = {
-          track: headers.indexOf(template.track_column),
-          artist: headers.indexOf(template.artist_column),
-          revenue: headers.indexOf(template.revenue_column),
-          date: headers.indexOf(template.date_column)
-        };
-
-        console.log('Column indexes:', columnIndexes);
-
-        const missingColumns = Object.entries(columnIndexes)
-          .filter(([_, index]) => index === -1)
-          .map(([field]) => template[`${field}_column`]);
-
-        if (missingColumns.length > 0) {
-          errors.push(`Missing required columns in ${file.filename}: ${missingColumns.join(', ')}`);
-          continue;
+        // Update track data
+        const trackKey = `${track}|${artist}`;
+        if (!trackMap.has(trackKey)) {
+          trackMap.set(trackKey, { track, artist, revenue: 0, periods: new Set() });
         }
+        const trackData = trackMap.get(trackKey);
+        trackData.revenue += revenue;
+        trackData.periods.add(period);
 
-        let fileRevenue = 0;
-        let fileRecords = 0;
-        let fileErrors = [];
-
-        // Process each data row
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
-
-          const values = line.split(',').map(v => v.trim());
-          
-          if (values.length !== headers.length) {
-            fileErrors.push(`Line ${i}: Invalid number of columns`);
-            continue;
-          }
-
-          const track = values[columnIndexes.track];
-          const artist = values[columnIndexes.artist];
-          const revenueStr = values[columnIndexes.revenue].replace(/[^0-9.-]+/g, '');
-          const revenue = parseFloat(revenueStr);
-          
-          if (isNaN(revenue)) {
-            console.warn(`Invalid revenue value at line ${i}: ${values[columnIndexes.revenue]}`);
-            continue;
-          }
-          
-          const date = values[columnIndexes.date];
-
-          if (track) uniqueTracks.add(track);
-          if (artist) uniqueArtists.add(artist);
-          if (date) {
-            try {
-              const dateObj = new Date(date);
-              if (!isNaN(dateObj.getTime())) {
-                const period = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
-                uniquePeriods.add(period);
-              }
-            } catch (error) {
-              fileErrors.push(`Line ${i}: Invalid date format: ${date}`);
-            }
-          }
-
-          fileRevenue += revenue;
-          fileRecords++;
+        // Update artist data
+        if (!artistMap.has(artist)) {
+          artistMap.set(artist, { artist, revenue: 0, tracks: new Set(), periods: new Set() });
         }
+        const artistData = artistMap.get(artist);
+        artistData.revenue += revenue;
+        artistData.tracks.add(track);
+        artistData.periods.add(period);
 
-        console.log(`File ${file.filename} processed:`, {
-          records: fileRecords,
-          revenue: fileRevenue,
-          errors: fileErrors.length
-        });
+        // Update period data
+        if (!periodMap.has(period)) {
+          periodMap.set(period, { period, revenue: 0, tracks: new Set() });
+        }
+        const periodData = periodMap.get(period);
+        periodData.revenue += revenue;
+        periodData.tracks.add(track);
 
-        totalRevenue += fileRevenue;
-        totalRecords += fileRecords;
-        totalArtistRevenue += fileRevenue * 0.7;
-
-        processedFiles.push({
-          filename: file.filename,
-          records: fileRecords,
-          revenue: fileRevenue,
-          status: fileErrors.length > 0 ? 'partial' : 'success',
-          errors: fileErrors
-        });
-      } catch (error) {
-        console.error(`Error processing file ${file.filename}:`, error);
-        errors.push(`Error processing file ${file.filename}: ${error.message}`);
+        totalRevenue += revenue;
+        totalArtistRevenue += revenue * 0.7;
+        totalRecords++;
       }
     }
 
@@ -240,18 +208,32 @@ const analyzeFiles = async (event) => {
         totalRecords,
         totalRevenue: parseFloat(totalRevenue.toFixed(2)),
         totalArtistRevenue: parseFloat(totalArtistRevenue.toFixed(2)),
-        uniqueTracks: Array.from(uniqueTracks),
-        uniqueArtists: Array.from(uniqueArtists),
-        uniquePeriods: Array.from(uniquePeriods)
+        uniqueTracksCount: trackMap.size,
+        uniqueArtistsCount: artistMap.size,
+        uniquePeriodsCount: periodMap.size
       },
-      processedFiles,
-      errors: errors.length > 0 ? errors : undefined
+      tracks: Array.from(trackMap.values()).map(t => ({
+        track: t.track,
+        artist: t.artist,
+        revenue: parseFloat(t.revenue.toFixed(2)),
+        periods: Array.from(t.periods).sort()
+      })).sort((a, b) => b.revenue - a.revenue),
+      artists: Array.from(artistMap.values()).map(a => ({
+        artist: a.artist,
+        revenue: parseFloat(a.revenue.toFixed(2)),
+        trackCount: a.tracks.size,
+        periods: Array.from(a.periods).sort()
+      })).sort((a, b) => b.revenue - a.revenue),
+      periods: Array.from(periodMap.values()).map(p => ({
+        period: p.period,
+        revenue: parseFloat(p.revenue.toFixed(2)),
+        trackCount: p.tracks.size
+      })).sort((a, b) => a.period.localeCompare(b.period))
     };
 
-    console.log('Analysis result:', result);
     return result;
   } catch (error) {
-    console.error('Error analyzing files:', error);
+    console.error('Error in analyzeFiles:', error);
     throw error;
   }
 };
@@ -275,105 +257,63 @@ const updateTemplate = async (event) => {
   }
 };
 
-// Fonction helper pour retourner une réponse formatée
 const sendResponse = (statusCode, body) => {
-  const response = {
+  return {
     statusCode,
     headers: {
       ...corsHeaders,
       'Vary': 'Origin'
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body, (key, value) => {
+      if (value instanceof Set) return Array.from(value);
+      if (typeof value === 'number') return parseFloat(value.toFixed(2));
+      return value;
+    })
   };
-  console.log('Sending response:', response);
-  return response;
 };
 
-// Fonction helper pour retourner une erreur
 const sendError = (statusCode, error) => {
-  console.error('Sending error response:', error);
+  console.error('Error:', error);
   return sendResponse(statusCode, {
-    summary: {
-      totalFiles: 0,
-      totalRecords: 0,
-      totalRevenue: 0,
-      totalArtistRevenue: 0,
-      uniqueTracks: [],
-      uniqueArtists: [],
-      uniquePeriods: []
-    },
-    processedFiles: [],
-    error: error.message || error
+    error: error.message || 'Unknown error'
   });
 };
 
-exports.handler = async (event, context) => {
-  console.log('Event path:', event.path);
-  console.log('HTTP method:', event.httpMethod);
-  console.log('Headers:', event.headers);
-  console.log('Origin:', event.headers.origin || event.headers.Origin);
-  console.log('Body size:', event.body ? Buffer.from(event.body, 'base64').length : 0);
-
-  // Gestion des requêtes OPTIONS (CORS preflight)
+exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
-      headers: {
-        ...corsHeaders,
-        'Vary': 'Origin'
-      },
+      headers: corsHeaders,
       body: ''
     };
   }
 
   try {
-    // Gestion des routes en fonction de la méthode HTTP
     switch (event.httpMethod) {
       case 'GET':
-        // Route pour obtenir les templates
-        console.log('Sending templates:', templates);
         return sendResponse(200, templates);
 
       case 'POST':
-        console.log('Processing POST request');
-        try {
-          // Si le chemin contient "template", c'est une mise à jour de template
-          if (event.path.includes('template')) {
-            console.log('Updating template');
-            const updatedTemplates = await updateTemplate(event);
-            return sendResponse(200, updatedTemplates);
-          }
-          
-          // Sinon, c'est une analyse de fichiers
-          console.log('Analyzing files');
-          const result = await analyzeFiles(event);
-          console.log('Analysis result:', result);
-          
-          if (result.error) {
-            return sendError(400, result.error);
-          }
-          
-          return sendResponse(200, result);
-        } catch (error) {
-          console.error('Error in POST handler:', error);
-          return sendError(400, error);
-        }
-
-      case 'PUT':
-        console.log('Processing PUT request');
-        try {
+        if (event.path.includes('template')) {
           const updatedTemplates = await updateTemplate(event);
           return sendResponse(200, updatedTemplates);
-        } catch (error) {
-          console.error('Error in PUT handler:', error);
-          return sendError(400, error);
+        }
+        
+        if (!event.body) {
+          return sendError(400, new Error('No request body provided'));
         }
 
+        if (!event.headers['content-type']?.includes('multipart/form-data')) {
+          return sendError(400, new Error('Invalid content type'));
+        }
+
+        const result = await analyzeFiles(event);
+        return sendResponse(200, result);
+
       default:
-        return sendError(405, 'Method not allowed');
+        return sendError(405, new Error('Method not allowed'));
     }
   } catch (error) {
-    console.error('Error in handler:', error);
     return sendError(500, error);
   }
 }; 

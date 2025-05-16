@@ -1,282 +1,256 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Paper,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
-  Grid,
-  useTheme
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Grid
 } from '@mui/material';
-import { ResponsiveBar } from '@nivo/bar';
-import { ResponsivePie } from '@nivo/pie';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
+
+const COLORS = [
+  '#60A5FA', '#F472B6', '#34D399', '#FBBF24', '#A78BFA',
+  '#F87171', '#45B7C6', '#FB923C', '#4ADE80', '#E879F9'
+];
+
+const formatCurrency = (value) => {
+  if (typeof value === 'string' && value.includes(' ')) {
+    return parseFloat(value.split(' ')[0]);
+  }
+  return typeof value === 'number' ? value : parseFloat(value || 0);
+};
+
+const getQuarter = (period) => {
+  const [year, month] = period.split('-');
+  const quarter = Math.ceil(parseInt(month) / 3);
+  return `${year}-Q${quarter}`;
+};
 
 const ChartView = ({ data }) => {
-  const theme = useTheme();
+  const [chartType, setChartType] = useState('revenue');
+  const [timeFrame, setTimeFrame] = useState('quarter');
+  const [viewType, setViewType] = useState('bar');
 
-  if (!data || !data.summary) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography variant="h6" color="text.secondary">
-          Aucune donnée disponible pour les graphiques
-        </Typography>
-      </Box>
-    );
-  }
+  if (!data) return null;
 
-  // Préparer les données pour les graphiques
-  const revenueData = {
-    total: parseFloat(data.summary.totalRevenue),
-    artist: parseFloat(data.summary.totalArtistRevenue),
-    label: parseFloat(data.summary.totalRevenue) - parseFloat(data.summary.totalArtistRevenue)
+  // Prepare data for different views
+  const prepareRevenueByQuarter = () => {
+    const quarterData = {};
+    data.periodSummary.forEach(period => {
+      const quarter = getQuarter(period.Period);
+      if (!quarterData[quarter]) {
+        quarterData[quarter] = {
+          period: quarter,
+          revenue: 0,
+          artistRevenue: 0,
+          tracks: 0
+        };
+      }
+      quarterData[quarter].revenue += formatCurrency(period.TotalRevenue);
+      quarterData[quarter].artistRevenue += formatCurrency(period.ArtistRevenue);
+      quarterData[quarter].tracks += period.Tracks;
+    });
+    return Object.values(quarterData).sort((a, b) => a.period.localeCompare(b.period));
   };
 
-  const pieData = [
-    { name: 'Revenus Artistes (70%)', value: revenueData.artist },
-    { name: 'Revenus Label (30%)', value: revenueData.label }
-  ];
+  const prepareRevenueByArtist = () => {
+    return data.artistSummary.map(artist => ({
+      name: artist.Artist,
+      revenue: formatCurrency(artist.TotalRevenue),
+      artistRevenue: formatCurrency(artist.ArtistRevenue),
+      tracks: artist.Tracks
+    })).sort((a, b) => b.revenue - a.revenue);
+  };
 
-  const COLORS = [theme.palette.primary.main, theme.palette.secondary.main];
+  const prepareRevenueByTrack = () => {
+    return data.trackSummary.map(track => ({
+      name: track.Track,
+      revenue: formatCurrency(track.TotalRevenue),
+      artistRevenue: formatCurrency(track.ArtistRevenue),
+      artist: track.Artist
+    })).sort((a, b) => b.revenue - a.revenue).slice(0, 10); // Top 10 tracks
+  };
 
-  // Formatter pour les valeurs monétaires
-  const formatEuros = (value) => `${value.toFixed(2)} €`;
+  const getChartData = () => {
+    switch (chartType) {
+      case 'revenue':
+        return timeFrame === 'quarter' ? prepareRevenueByQuarter() : prepareRevenueByArtist();
+      case 'tracks':
+        return prepareRevenueByTrack();
+      default:
+        return [];
+    }
+  };
+
+  const renderBarChart = () => {
+    const chartData = getChartData();
+    return (
+      <ResponsiveContainer width="100%" height={400}>
+        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey={chartType === 'revenue' ? (timeFrame === 'quarter' ? 'period' : 'name') : 'name'}
+            angle={-45}
+            textAnchor="end"
+            height={100}
+          />
+          <YAxis />
+          <Tooltip
+            formatter={(value, name) => {
+              if (name.includes('revenue')) {
+                return [`${value.toFixed(2)} EUR`, name];
+              }
+              return [value, name];
+            }}
+          />
+          <Legend />
+          <Bar dataKey="revenue" name="Total Revenue" fill="#60A5FA" />
+          <Bar dataKey="artistRevenue" name="Artist Revenue" fill="#F472B6" />
+          {chartType === 'revenue' && <Bar dataKey="tracks" name="Tracks" fill="#34D399" />}
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  const renderPieChart = () => {
+    const chartData = getChartData().map(item => ({
+      name: item.name || item.period,
+      value: item.revenue
+    }));
+
+    return (
+      <ResponsiveContainer width="100%" height={400}>
+        <PieChart>
+          <Pie
+            data={chartData}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            outerRadius={150}
+            fill="#8884d8"
+            label={({ name, value }) => `${name}: ${value.toFixed(2)} EUR`}
+          >
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip formatter={(value) => `${value.toFixed(2)} EUR`} />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    );
+  };
 
   return (
-    <Box sx={{ p: 2 }}>
-      <Grid container spacing={3}>
-        {/* Graphique en secteurs de la répartition des revenus */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: '400px' }}>
-            <Typography variant="h6" gutterBottom align="center">
-              Répartition des Revenus
-            </Typography>
-            <ResponsivePie
-              data={pieData}
-              colors={COLORS}
-              margin={{
-                top: 40,
-                right: 80,
-                bottom: 80,
-                left: 80
-              }}
-              innerRadius={0.5}
-              padAngle={0.7}
-              cornerRadius={3}
-              activeOuterRadiusOffset={8}
-              borderWidth={1}
-              borderColor={{
-                from: 'color',
-                modifiers: [
-                  [
-                    'darker',
-                    0.2
-                  ],
-                  [
-                    'brighter',
-                    0.2
-                  ]
-                ]
-              }}
-              enableArcLabels={false}
-              arcLinkLabelsSkipAngle={10}
-              arcLinkLabelsTextColor="#333333"
-              arcLinkLabelsThickness={2}
-              arcLinkLabelsColor={{ from: 'color' }}
-              arcLabelsSkipAngle={10}
-              arcLabelsTextColor={{
-                from: 'color',
-                modifiers: [
-                  [
-                    'darker',
-                    0.4
-                  ]
-                ]
-              }}
-              defs={[
-                {
-                  id: 'dots',
-                  type: 'patternDots',
-                  background: 'inherit',
-                  color: '#38bcb2',
-                  size: 4,
-                  padding: 1,
-                  stagger: true
-                },
-                {
-                  id: 'lines',
-                  type: 'patternLines',
-                  background: 'inherit',
-                  color: '#eed312',
-                  rotation: -45,
-                  lineWidth: 6,
-                  spacing: 10
-                }
-              ]}
-              fill={[
-                {
-                  match: {
-                    id: 'Revenus Artistes (70%)'
-                  },
-                  id: 'dots'
-                },
-                {
-                  match: {
-                    id: 'Revenus Label (30%)'
-                  },
-                  id: 'lines'
-                }
-              ]}
-            />
-          </Paper>
+    <Box sx={{ width: '100%' }}>
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Grid container spacing={3} alignItems="center" sx={{ mb: 3 }}>
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth>
+              <InputLabel>View</InputLabel>
+              <Select
+                value={chartType}
+                onChange={(e) => setChartType(e.target.value)}
+                label="View"
+              >
+                <MenuItem value="revenue">Revenue Analysis</MenuItem>
+                <MenuItem value="tracks">Top Tracks</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          
+          {chartType === 'revenue' && (
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Time Frame</InputLabel>
+                <Select
+                  value={timeFrame}
+                  onChange={(e) => setTimeFrame(e.target.value)}
+                  label="Time Frame"
+                >
+                  <MenuItem value="quarter">By Quarter</MenuItem>
+                  <MenuItem value="artist">By Artist</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          )}
+
+          <Grid item xs={12} md={4}>
+            <ToggleButtonGroup
+              value={viewType}
+              exclusive
+              onChange={(e, value) => value && setViewType(value)}
+              aria-label="chart type"
+              fullWidth
+            >
+              <ToggleButton value="bar">Bar Chart</ToggleButton>
+              <ToggleButton value="pie">Pie Chart</ToggleButton>
+            </ToggleButtonGroup>
+          </Grid>
         </Grid>
 
-        {/* Statistiques générales */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: '400px' }}>
-            <Typography variant="h6" gutterBottom align="center">
-              Statistiques Générales
-            </Typography>
-            <Box sx={{ mt: 4 }}>
-              <Typography variant="body1" gutterBottom>
-                Nombre total de fichiers : {data.summary.totalFiles}
-              </Typography>
-              <Typography variant="body1" gutterBottom>
-                Nombre total d'enregistrements : {data.summary.totalRecords}
-              </Typography>
-              <Typography variant="body1" gutterBottom>
-                Titres uniques : {data.summary.uniqueTracks}
-              </Typography>
-              <Typography variant="body1" gutterBottom>
-                Artistes uniques : {data.summary.uniqueArtists}
-              </Typography>
-              <Typography variant="body1" gutterBottom>
-                Périodes couvertes : {data.summary.uniquePeriods}
-              </Typography>
-              <Typography variant="h6" sx={{ mt: 3, color: theme.palette.primary.main }}>
-                Revenu Total : {data.summary.totalRevenue}
-              </Typography>
-              <Typography variant="h6" sx={{ color: theme.palette.secondary.main }}>
-                Revenu Artistes : {data.summary.totalArtistRevenue}
-              </Typography>
-            </Box>
-          </Paper>
-        </Grid>
+        <Box sx={{ height: 400, width: '100%' }}>
+          {viewType === 'bar' ? renderBarChart() : renderPieChart()}
+        </Box>
+      </Paper>
 
-        {/* Graphique des fichiers traités */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3, height: '400px' }}>
-            <Typography variant="h6" gutterBottom align="center">
-              Taille des Fichiers Traités
+      <Paper sx={{ p: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Summary
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Total Revenue
             </Typography>
-            <ResponsiveBar
-              data={data.processedFiles}
-              keys={['size']}
-              indexBy="name"
-              margin={{
-                top: 50,
-                right: 100,
-                bottom: 50,
-                left: 60
-              }}
-              padding={0.3}
-              colors={{ scheme: 'nivo' }}
-              defs={[
-                {
-                  id: 'dots',
-                  type: 'patternDots',
-                  background: 'inherit',
-                  color: '#38bcb2',
-                  size: 4,
-                  padding: 1,
-                  stagger: true
-                },
-                {
-                  id: 'lines',
-                  type: 'patternLines',
-                  background: 'inherit',
-                  color: '#eed312',
-                  rotation: -45,
-                  lineWidth: 6,
-                  spacing: 10
-                }
-              ]}
-              fill={[
-                {
-                  match: {
-                    id: 'Revenus Artistes (70%)'
-                  },
-                  id: 'dots'
-                },
-                {
-                  match: {
-                    id: 'Revenus Label (30%)'
-                  },
-                  id: 'lines'
-                }
-              ]}
-              borderColor={{
-                from: 'color',
-                modifiers: [
-                  [
-                    'darker',
-                    0.4
-                  ]
-                ]
-              }}
-              axisTop={null}
-              axisRight={null}
-              axisBottom={{
-                tickSize: 5,
-                tickPadding: 5,
-                tickRotation: 0,
-                legend: 'fichiers',
-                legendPosition: 'middle',
-                legendOffset: 32
-              }}
-              axisLeft={{
-                tickSize: 5,
-                tickPadding: 5,
-                tickRotation: 0,
-                legend: 'taille',
-                legendPosition: 'middle',
-                legendOffset: -40
-              }}
-              labelSkipWidth={12}
-              labelSkipHeight={12}
-              labelTextColor={{
-                from: 'color',
-                modifiers: [
-                  [
-                    'darker',
-                    0.8
-                  ]
-                ]
-              }}
-              legends={[
-                {
-                  anchor: 'bottom-right',
-                  direction: 'column',
-                  justify: false,
-                  translateX: 120,
-                  translateY: 0,
-                  itemsSpacing: 2,
-                  itemWidth: 100,
-                  itemHeight: 20,
-                  itemDirection: 'left-to-right',
-                  itemOpacity: 0.85,
-                  symbolSize: 20,
-                  effects: [
-                    {
-                      on: 'hover',
-                      style: {
-                        itemOpacity: 1
-                      }
-                    }
-                  ]
-                }
-              ]}
-            />
-          </Paper>
+            <Typography variant="h6">
+              {formatCurrency(data.summary.totalRevenue).toFixed(2)} EUR
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Artist Revenue
+            </Typography>
+            <Typography variant="h6">
+              {formatCurrency(data.summary.totalArtistRevenue).toFixed(2)} EUR
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Total Tracks
+            </Typography>
+            <Typography variant="h6">
+              {data.summary.uniqueTracksCount}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Total Artists
+            </Typography>
+            <Typography variant="h6">
+              {data.summary.uniqueArtistsCount}
+            </Typography>
+          </Grid>
         </Grid>
-      </Grid>
+      </Paper>
     </Box>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Paper,
   Table,
@@ -12,22 +12,21 @@ import {
   Box,
   Tabs,
   Tab,
-  Button
+  Button,
+  Typography,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 
 // Helper function to format currency values
 const formatCurrency = (value) => {
-  if (!value) return '0.00';
+  if (!value && value !== 0) return '0.00 EUR';
   
-  // If the value is already formatted with currency (e.g. "123.45 EUR")
-  if (typeof value === 'string' && value.includes(' ')) {
-    const [amount, currency] = value.split(' ');
-    return `${parseFloat(amount).toFixed(2)} ${currency}`;
-  }
-  
-  // If it's just a number
-  return typeof value === 'number' ? value.toFixed(2) : parseFloat(value).toFixed(2);
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  return `${numValue.toFixed(2)} EUR`;
 };
 
 // Helper function to convert data to CSV
@@ -98,7 +97,7 @@ const downloadCSV = (csvContent, fileName) => {
   }
 };
 
-// Helper function to convert month period to quarter
+// Helper function to get quarter from date
 const getQuarter = (period) => {
   if (!period) return '';
   const [year, month] = period.split('-');
@@ -107,17 +106,51 @@ const getQuarter = (period) => {
   return `${year}-Q${quarterNum}`;
 };
 
-// Helper function to format filename
-const formatFileName = (artist, period) => {
-  const quarter = getQuarter(period);
-  return `Statement_whalesrecords_${artist.toLowerCase().replace(/\s+/g, '')}_${quarter}.csv`;
+// Helper function to group data by quarter
+const groupByQuarter = (data) => {
+  const quarterMap = new Map();
+  
+  data.forEach(item => {
+    const quarter = getQuarter(item.period);
+    if (!quarterMap.has(quarter)) {
+      quarterMap.set(quarter, {
+        period: quarter,
+        revenue: 0,
+        artistRevenue: 0,
+        tracks: new Set()
+      });
+    }
+    const quarterData = quarterMap.get(quarter);
+    quarterData.revenue += item.revenue;
+    quarterData.artistRevenue += item.revenue * 0.7;
+    if (item.tracks) {
+      item.tracks.forEach(track => quarterData.tracks.add(track));
+    }
+  });
+
+  return Array.from(quarterMap.values()).map(quarter => ({
+    ...quarter,
+    tracks: quarter.tracks.size
+  }));
 };
 
 function ResultsTable({ data }) {
   const [currentTab, setCurrentTab] = useState(0);
-  const [sortBy, setSortBy] = useState('TotalRevenue');
+  const [sortBy, setSortBy] = useState('revenue');
   const [sortDirection, setSortDirection] = useState('desc');
   const [filter, setFilter] = useState('');
+  const [selectedQuarter, setSelectedQuarter] = useState('all');
+
+  if (!data || !data.breakdowns) return null;
+
+  // Prepare quarters list for filtering
+  const quarters = useMemo(() => {
+    const uniqueQuarters = new Set();
+    data.breakdowns.byPeriod.forEach(period => {
+      uniqueQuarters.add(getQuarter(period.period));
+    });
+    return ['all', ...Array.from(uniqueQuarters).sort()];
+  }, [data.breakdowns.byPeriod]);
 
   const handleSort = (column) => {
     if (sortBy === column) {
@@ -129,388 +162,283 @@ function ResultsTable({ data }) {
   };
 
   const filterData = (dataArray) => {
-    if (!filter) return dataArray || [];
-    if (!Array.isArray(dataArray)) return [];
+    if (!dataArray) return [];
     
-    return dataArray.filter(row => 
-      Object.values(row).some(value => 
-        String(value).toLowerCase().includes(filter.toLowerCase())
-      )
-    );
+    let filtered = dataArray;
+
+    // Apply text filter
+    if (filter) {
+      filtered = filtered.filter(row => 
+        Object.values(row).some(value => 
+          String(value).toLowerCase().includes(filter.toLowerCase())
+        )
+      );
+    }
+
+    // Apply quarter filter if not 'all'
+    if (selectedQuarter !== 'all' && currentTab !== 2) { // Don't apply to period view
+      filtered = filtered.filter(row => {
+        const periods = Array.isArray(row.periods) ? row.periods : [row.period];
+        return periods.some(period => getQuarter(period) === selectedQuarter);
+      });
+    }
+
+    return filtered;
   };
 
   const sortData = (dataArray) => {
-    if (!Array.isArray(dataArray)) return [];
-    
     return [...dataArray].sort((a, b) => {
       let aValue = a[sortBy];
       let bValue = b[sortBy];
       
-      // Handle currency values
-      if (typeof aValue === 'string' && aValue.includes(' ')) {
-        aValue = parseFloat(aValue.split(' ')[0]);
-      }
-      if (typeof bValue === 'string' && bValue.includes(' ')) {
-        bValue = parseFloat(bValue.split(' ')[0]);
+      // Handle numerical values
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
       }
       
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
+      // Handle string values
+      aValue = String(aValue).toLowerCase();
+      bValue = String(bValue).toLowerCase();
+      return sortDirection === 'asc' 
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue);
     });
   };
 
-  const handleExport = () => {
-    let exportData;
-    let fileName;
-    
-    switch (currentTab) {
-      case 0: // By Track
-        exportData = sortData(filterData(data.trackSummary));
-        if (exportData && exportData.length > 0) {
-          const artist = exportData[0].Artist;
-          const latestPeriod = exportData[0].Periods.split(', ').sort().pop();
-          fileName = formatFileName(artist, latestPeriod);
-        } else {
-          fileName = 'track_summary.csv';
-        }
-        break;
-      case 1: // By Artist
-        exportData = sortData(filterData(data.artistSummary));
-        if (exportData && exportData.length > 0) {
-          const artist = exportData[0].Artist;
-          const latestPeriod = exportData[0].Periods.split(', ').sort().pop();
-          fileName = formatFileName(artist, latestPeriod);
-        } else {
-          fileName = 'artist_summary.csv';
-        }
-        break;
-      case 2: // By Period
-        exportData = sortData(filterData(data.periodSummary));
-        if (exportData && exportData.length > 0) {
-          const artist = data.artistSummary && data.artistSummary[0]?.Artist || 'all';
-          fileName = formatFileName(artist, exportData[0].Period);
-        } else {
-          fileName = 'period_summary.csv';
-        }
-        break;
-      default:
-        return;
-    }
-    
-    if (!exportData || exportData.length === 0) {
-      console.warn('No data to export');
-      return;
-    }
+  const renderTrackSummary = () => {
+    const tracks = filterData(data.breakdowns.byTrack);
+    if (!tracks || tracks.length === 0) return null;
 
-    const csvContent = convertToCSV(exportData);
-    downloadCSV(csvContent, fileName);
+    return (
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>
+                <TableSortLabel
+                  active={sortBy === 'track'}
+                  direction={sortDirection}
+                  onClick={() => handleSort('track')}
+                >
+                  Track
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={sortBy === 'artist'}
+                  direction={sortDirection}
+                  onClick={() => handleSort('artist')}
+                >
+                  Artist
+                </TableSortLabel>
+              </TableCell>
+              <TableCell align="right">
+                <TableSortLabel
+                  active={sortBy === 'revenue'}
+                  direction={sortDirection}
+                  onClick={() => handleSort('revenue')}
+                >
+                  Total Revenue
+                </TableSortLabel>
+              </TableCell>
+              <TableCell align="right">Artist Revenue</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {sortData(tracks).map((row, index) => (
+              <TableRow key={index}>
+                <TableCell>{row.track}</TableCell>
+                <TableCell>{row.artist}</TableCell>
+                <TableCell align="right">{formatCurrency(row.revenue)}</TableCell>
+                <TableCell align="right">{formatCurrency(row.revenue * 0.7)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    );
   };
 
-  const renderTrackSummary = () => (
-    <TableContainer component={Paper}>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>
-              <TableSortLabel
-                active={sortBy === 'Track'}
-                direction={sortBy === 'Track' ? sortDirection : 'asc'}
-                onClick={() => handleSort('Track')}
-              >
-                Track
-              </TableSortLabel>
-            </TableCell>
-            <TableCell>
-              <TableSortLabel
-                active={sortBy === 'Artist'}
-                direction={sortBy === 'Artist' ? sortDirection : 'asc'}
-                onClick={() => handleSort('Artist')}
-              >
-                Artist
-              </TableSortLabel>
-            </TableCell>
-            <TableCell>
-              <TableSortLabel
-                active={sortBy === 'Periods'}
-                direction={sortBy === 'Periods' ? sortDirection : 'asc'}
-                onClick={() => handleSort('Periods')}
-              >
-                Periods
-              </TableSortLabel>
-            </TableCell>
-            <TableCell>Sources</TableCell>
-            <TableCell align="right">
-              <TableSortLabel
-                active={sortBy === 'TotalRevenue'}
-                direction={sortBy === 'TotalRevenue' ? sortDirection : 'asc'}
-                onClick={() => handleSort('TotalRevenue')}
-              >
-                Total Revenue
-              </TableSortLabel>
-            </TableCell>
-            <TableCell align="right">
-              <TableSortLabel
-                active={sortBy === 'ArtistRevenue'}
-                direction={sortBy === 'ArtistRevenue' ? sortDirection : 'asc'}
-                onClick={() => handleSort('ArtistRevenue')}
-              >
-                Artist Revenue
-              </TableSortLabel>
-            </TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {sortData(filterData(data.trackSummary)).map((row, index) => (
-            <TableRow key={index}>
-              <TableCell>{row.Track}</TableCell>
-              <TableCell>{row.Artist}</TableCell>
-              <TableCell>{row.Periods}</TableCell>
-              <TableCell>{row.Sources}</TableCell>
-              <TableCell align="right">{formatCurrency(row.TotalRevenue)}</TableCell>
-              <TableCell align="right">{formatCurrency(row.ArtistRevenue)}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
+  const renderArtistSummary = () => {
+    const artists = filterData(data.breakdowns.byArtist);
+    if (!artists || artists.length === 0) return null;
 
-  const renderArtistSummary = () => (
-    <TableContainer component={Paper}>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>
-              <TableSortLabel
-                active={sortBy === 'Artist'}
-                direction={sortBy === 'Artist' ? sortDirection : 'asc'}
-                onClick={() => handleSort('Artist')}
-              >
-                Artist
-              </TableSortLabel>
-            </TableCell>
-            <TableCell align="right">
-              <TableSortLabel
-                active={sortBy === 'TrackCount'}
-                direction={sortBy === 'TrackCount' ? sortDirection : 'asc'}
-                onClick={() => handleSort('TrackCount')}
-              >
-                Tracks
-              </TableSortLabel>
-            </TableCell>
-            <TableCell>Periods</TableCell>
-            <TableCell align="right">
-              <TableSortLabel
-                active={sortBy === 'TotalRevenue'}
-                direction={sortBy === 'TotalRevenue' ? sortDirection : 'asc'}
-                onClick={() => handleSort('TotalRevenue')}
-              >
-                Total Revenue
-              </TableSortLabel>
-            </TableCell>
-            <TableCell align="right">
-              <TableSortLabel
-                active={sortBy === 'ArtistRevenue'}
-                direction={sortBy === 'ArtistRevenue' ? sortDirection : 'asc'}
-                onClick={() => handleSort('ArtistRevenue')}
-              >
-                Artist Revenue
-              </TableSortLabel>
-            </TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {sortData(filterData(data.artistSummary)).map((row, index) => (
-            <TableRow key={index}>
-              <TableCell>{row.Artist}</TableCell>
-              <TableCell align="right">{row.TrackCount}</TableCell>
-              <TableCell>{row.Periods}</TableCell>
-              <TableCell align="right">{formatCurrency(row.TotalRevenue)}</TableCell>
-              <TableCell align="right">{formatCurrency(row.ArtistRevenue)}</TableCell>
+    return (
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>
+                <TableSortLabel
+                  active={sortBy === 'artist'}
+                  direction={sortDirection}
+                  onClick={() => handleSort('artist')}
+                >
+                  Artist
+                </TableSortLabel>
+              </TableCell>
+              <TableCell align="right">
+                <TableSortLabel
+                  active={sortBy === 'revenue'}
+                  direction={sortDirection}
+                  onClick={() => handleSort('revenue')}
+                >
+                  Total Revenue
+                </TableSortLabel>
+              </TableCell>
+              <TableCell align="right">Artist Revenue</TableCell>
+              <TableCell align="right">
+                <TableSortLabel
+                  active={sortBy === 'trackCount'}
+                  direction={sortDirection}
+                  onClick={() => handleSort('trackCount')}
+                >
+                  Tracks
+                </TableSortLabel>
+              </TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
-
-  const renderPeriodSummary = () => (
-    <TableContainer component={Paper}>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>
-              <TableSortLabel
-                active={sortBy === 'Period'}
-                direction={sortBy === 'Period' ? sortDirection : 'asc'}
-                onClick={() => handleSort('Period')}
-              >
-                Period
-              </TableSortLabel>
-            </TableCell>
-            <TableCell align="right">
-              <TableSortLabel
-                active={sortBy === 'TrackCount'}
-                direction={sortBy === 'TrackCount' ? sortDirection : 'asc'}
-                onClick={() => handleSort('TrackCount')}
-              >
-                Tracks
-              </TableSortLabel>
-            </TableCell>
-            <TableCell align="right">
-              <TableSortLabel
-                active={sortBy === 'ArtistCount'}
-                direction={sortBy === 'ArtistCount' ? sortDirection : 'asc'}
-                onClick={() => handleSort('ArtistCount')}
-              >
-                Artists
-              </TableSortLabel>
-            </TableCell>
-            <TableCell align="right">
-              <TableSortLabel
-                active={sortBy === 'TotalRevenue'}
-                direction={sortBy === 'TotalRevenue' ? sortDirection : 'asc'}
-                onClick={() => handleSort('TotalRevenue')}
-              >
-                Total Revenue
-              </TableSortLabel>
-            </TableCell>
-            <TableCell align="right">
-              <TableSortLabel
-                active={sortBy === 'ArtistRevenue'}
-                direction={sortBy === 'ArtistRevenue' ? sortDirection : 'asc'}
-                onClick={() => handleSort('ArtistRevenue')}
-              >
-                Artist Revenue
-              </TableSortLabel>
-            </TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {sortData(filterData(data.periodSummary)).map((row, index) => (
-            <TableRow key={index}>
-              <TableCell>{row.Period}</TableCell>
-              <TableCell align="right">{row.TrackCount}</TableCell>
-              <TableCell align="right">{row.ArtistCount}</TableCell>
-              <TableCell align="right">{formatCurrency(row.TotalRevenue)}</TableCell>
-              <TableCell align="right">{formatCurrency(row.ArtistRevenue)}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
-
-  const formatRevenue = (value) => {
-    if (typeof value === 'string') {
-      return value;
-    }
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(value);
+          </TableHead>
+          <TableBody>
+            {sortData(artists).map((row, index) => (
+              <TableRow key={index}>
+                <TableCell>{row.artist}</TableCell>
+                <TableCell align="right">{formatCurrency(row.revenue)}</TableCell>
+                <TableCell align="right">{formatCurrency(row.revenue * 0.7)}</TableCell>
+                <TableCell align="right">{row.trackCount}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    );
   };
 
-  if (!data) {
-    return <Box p={2}>No data to display</Box>;
-  }
+  const renderPeriodSummary = () => {
+    const periodData = data.breakdowns.byPeriod;
+    const quarterData = groupByQuarter(periodData);
+    const periods = filterData(quarterData);
+    
+    if (!periods || periods.length === 0) return null;
+
+    return (
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>
+                <TableSortLabel
+                  active={sortBy === 'period'}
+                  direction={sortDirection}
+                  onClick={() => handleSort('period')}
+                >
+                  Quarter
+                </TableSortLabel>
+              </TableCell>
+              <TableCell align="right">
+                <TableSortLabel
+                  active={sortBy === 'revenue'}
+                  direction={sortDirection}
+                  onClick={() => handleSort('revenue')}
+                >
+                  Total Revenue
+                </TableSortLabel>
+              </TableCell>
+              <TableCell align="right">Artist Revenue</TableCell>
+              <TableCell align="right">
+                <TableSortLabel
+                  active={sortBy === 'tracks'}
+                  direction={sortDirection}
+                  onClick={() => handleSort('tracks')}
+                >
+                  Tracks
+                </TableSortLabel>
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {sortData(periods).map((row, index) => (
+              <TableRow key={index}>
+                <TableCell>{row.period}</TableCell>
+                <TableCell align="right">{formatCurrency(row.revenue)}</TableCell>
+                <TableCell align="right">{formatCurrency(row.artistRevenue)}</TableCell>
+                <TableCell align="right">{row.tracks}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    );
+  };
 
   return (
-    <Box>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Tabs value={currentTab} onChange={(_, newValue) => setCurrentTab(newValue)}>
+    <Box sx={{ width: '100%' }}>
+      {/* Summary Section */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>Summary</Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="subtitle2" color="text.secondary">Total Revenue</Typography>
+            <Typography variant="h6">{formatCurrency(data.summary.totalRevenue)}</Typography>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="subtitle2" color="text.secondary">Artist Revenue</Typography>
+            <Typography variant="h6">{formatCurrency(data.summary.totalArtistRevenue)}</Typography>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="subtitle2" color="text.secondary">Total Tracks</Typography>
+            <Typography variant="h6">{data.summary.uniqueTracksCount}</Typography>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="subtitle2" color="text.secondary">Total Artists</Typography>
+            <Typography variant="h6">{data.summary.uniqueArtistsCount}</Typography>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Controls Section */}
+      <Box sx={{ mb: 3 }}>
+        <Tabs value={currentTab} onChange={(e, newValue) => setCurrentTab(newValue)}>
           <Tab label="By Track" />
           <Tab label="By Artist" />
-          <Tab label="By Period" />
+          <Tab label="By Quarter" />
         </Tabs>
+      </Box>
+
+      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+        <TextField
+          label="Filter"
+          variant="outlined"
+          size="small"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          sx={{ width: 300 }}
+        />
+        
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Quarter</InputLabel>
+          <Select
+            value={selectedQuarter}
+            onChange={(e) => setSelectedQuarter(e.target.value)}
+            label="Quarter"
+          >
+            {quarters.map(quarter => (
+              <MenuItem key={quarter} value={quarter}>
+                {quarter === 'all' ? 'All Quarters' : quarter}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
         <Button
           variant="contained"
-          color="primary"
           startIcon={<FileDownloadIcon />}
-          onClick={handleExport}
+          onClick={() => {
+            // Implement export functionality
+          }}
         >
           Export CSV
         </Button>
       </Box>
-
-      <Box sx={{ mb: 3 }}>
-        <TextField
-          label="Search"
-          variant="outlined"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          fullWidth
-        />
-      </Box>
-
-      {data && (data.summary || data.processedFiles) && (
-        <TableContainer component={Paper} sx={{ mb: 4 }}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Métrique</TableCell>
-                <TableCell align="right">Valeur</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {data.summary && (
-                <>
-                  <TableRow>
-                    <TableCell>Nombre de fichiers traités</TableCell>
-                    <TableCell align="right">{data.summary.totalFiles}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Nombre total d'enregistrements</TableCell>
-                    <TableCell align="right">{data.summary.totalRecords}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Revenu total</TableCell>
-                    <TableCell align="right">{formatRevenue(data.summary.totalRevenue)}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Revenu des artistes</TableCell>
-                    <TableCell align="right">{formatRevenue(data.summary.totalArtistRevenue)}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Nombre de titres uniques</TableCell>
-                    <TableCell align="right">{data.summary.uniqueTracks}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Nombre d'artistes uniques</TableCell>
-                    <TableCell align="right">{data.summary.uniqueArtists}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell>Nombre de périodes uniques</TableCell>
-                    <TableCell align="right">{data.summary.uniquePeriods}</TableCell>
-                  </TableRow>
-                </>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-
-      {data && data.processedFiles && data.processedFiles.length > 0 && (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Nom du fichier</TableCell>
-                <TableCell align="right">Taille</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {data.processedFiles.map((file, index) => (
-                <TableRow key={index}>
-                  <TableCell>{file.name}</TableCell>
-                  <TableCell align="right">{file.size} MB</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
 
       {currentTab === 0 && renderTrackSummary()}
       {currentTab === 1 && renderArtistSummary()}
