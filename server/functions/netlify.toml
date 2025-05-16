@@ -1,7 +1,0 @@
-[functions]
-  external_node_modules = ["express", "multer"]
-  included_files = ["package.json"]
-
-[function.server]
-  memory = 1024
-  timeout = 30 

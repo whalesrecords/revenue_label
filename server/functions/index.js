@@ -51,14 +51,17 @@ const predefinedTemplates = {
 };
 
 // Health check endpoint
-router.get('/', (req, res) => {
+app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
 // Get templates endpoint
-router.get('/templates', (req, res) => {
+app.get('/templates', (req, res) => {
   try {
     console.log('GET /templates called');
+    console.log('Request path:', req.path);
+    console.log('Request URL:', req.url);
+    
     const templateArray = Object.entries(predefinedTemplates).map(([name, template]) => ({
       name,
       ...template
@@ -79,10 +82,12 @@ const handler = serverless(app);
 // Export the handler
 exports.handler = async (event, context) => {
   // Log incoming request
-  console.log('Request:', {
+  console.log('Incoming request:', {
     path: event.path,
     method: event.httpMethod,
-    headers: event.headers
+    headers: event.headers,
+    rawPath: event.rawPath,
+    rawQuery: event.rawQueryString
   });
 
   try {
@@ -92,17 +97,29 @@ exports.handler = async (event, context) => {
     // Log response
     console.log('Response:', {
       statusCode: result.statusCode,
-      headers: result.headers
+      headers: result.headers,
+      body: result.body
     });
 
-    return result;
+    return {
+      ...result,
+      headers: {
+        ...result.headers,
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type,Authorization'
+      }
+    };
   } catch (error) {
     console.error('Error:', error);
     return {
       statusCode: 500,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type,Authorization'
       },
       body: JSON.stringify({
         error: 'Internal Server Error',
