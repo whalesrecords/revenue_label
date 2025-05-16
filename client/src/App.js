@@ -278,14 +278,18 @@ function App() {
             credentials: 'omit'
           });
 
-          const contentType = response.headers.get('content-type');
-          if (!contentType || !contentType.includes('application/json')) {
-            console.error('Invalid content type:', contentType);
-            throw new Error('Server returned invalid content type');
+          console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+          let result;
+          
+          try {
+            const text = await response.text();
+            console.log('Raw response:', text);
+            result = JSON.parse(text);
+            console.log('Parsed result:', result);
+          } catch (e) {
+            console.error('Error parsing response:', e);
+            throw new Error('Failed to parse server response');
           }
-
-          const result = await response.json();
-          console.log('Batch result:', result);
 
           if (!response.ok) {
             throw new Error(result.error || `Server error: ${response.status}`);

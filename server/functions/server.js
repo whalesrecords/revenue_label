@@ -292,6 +292,19 @@ const updateTemplate = async (event) => {
   }
 };
 
+// Fonction helper pour retourner une réponse formatée
+const sendResponse = (statusCode, body) => {
+  console.log('Sending response:', { statusCode, body });
+  return {
+    statusCode,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  };
+};
+
 exports.handler = async (event, context) => {
   // Log pour le débogage
   console.log('Event path:', event.path);
@@ -299,16 +312,16 @@ exports.handler = async (event, context) => {
   console.log('Headers:', event.headers);
   console.log('Body size:', event.body ? Buffer.from(event.body, 'base64').length : 0);
 
-  // Fonction helper pour retourner une réponse formatée
-  const sendResponse = (statusCode, body) => ({
-    statusCode,
-    headers: corsHeaders,
-    body: JSON.stringify(body)
-  });
-
   // Gestion des requêtes OPTIONS (CORS preflight)
   if (event.httpMethod === 'OPTIONS') {
-    return sendResponse(204, '');
+    return {
+      statusCode: 204,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      },
+      body: ''
+    };
   }
 
   try {
