@@ -3,9 +3,16 @@ const serverless = require('serverless-http');
 const cors = require('cors');
 const app = express();
 
-// Enable CORS
-app.use(cors());
+// Enable CORS with proper options
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+}));
+
+// Parse JSON and form data
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Predefined templates
 let templates = [
@@ -36,13 +43,21 @@ let templates = [
     date_column: "Operation Date",
     source: "BELIEVE",
     currency: "EUR"
+  },
+  {
+    name: "DashGo",
+    track_column: "Track Title",
+    artist_column: "Artist Name",
+    upc_column: "UPC",
+    revenue_column: "Payable",
+    date_column: "Transaction Date",
+    source: "DashGo",
+    currency: "USD"
   }
 ];
 
-const router = express.Router();
-
 // GET templates
-router.get('/', async (req, res) => {
+app.get('/', async (req, res) => {
   console.log('GET /templates called');
   try {
     res.json(templates);
@@ -53,7 +68,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST new template
-router.post('/', async (req, res) => {
+app.post('/', async (req, res) => {
   console.log('POST /templates called with body:', req.body);
   try {
     const newTemplate = req.body;
@@ -82,9 +97,6 @@ router.post('/', async (req, res) => {
     res.status(500).json({ error: 'Failed to create template' });
   }
 });
-
-// Mount the router
-app.use('/.netlify/functions/templates', router);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

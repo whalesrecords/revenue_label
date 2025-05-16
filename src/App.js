@@ -129,13 +129,22 @@ function App() {
       try {
         const endpoint = `${config.API_URL}${config.TEMPLATE_ENDPOINTS.get}`;
         console.info('Fetching templates from:', endpoint);
+        
         const response = await fetch(endpoint, {
           method: 'GET',
-          headers: config.DEFAULT_HEADERS,
+          headers: {
+            'Accept': 'application/json'
+          },
           mode: 'cors',
           credentials: 'omit'
         });
         
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Server error response:', errorText);
+          throw new Error(`Server error: ${response.status}`);
+        }
+
         const responseText = await response.text();
         console.info('Raw response:', responseText);
         
@@ -145,10 +154,6 @@ function App() {
         } catch (e) {
           console.error('Error parsing response:', e);
           throw new Error(`Failed to parse response: ${responseText}`);
-        }
-
-        if (!response.ok) {
-          throw new Error(data?.error || `Server error: ${response.status}`);
         }
 
         if (!Array.isArray(data)) {
@@ -290,7 +295,7 @@ function App() {
     try {
       const formData = new FormData();
       files.forEach((file) => {
-        formData.append('files[]', file);
+        formData.append('files', file);
       });
       formData.append('template', selectedTemplate);
 
@@ -305,8 +310,11 @@ function App() {
         credentials: 'omit'
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server error response:', errorText);
+        throw new Error(`Server error: ${response.status}`);
+      }
 
       const responseText = await response.text();
       console.log('Raw response:', responseText);
@@ -321,16 +329,39 @@ function App() {
         throw new Error('Failed to parse server response');
       }
 
-      if (!response.ok) {
-        throw new Error(responseData?.error || `Server error: ${response.status}`);
-      }
+      // Transform the response to match the expected format
+      const transformedResults = {
+        summary: {
+          totalFiles: files.length,
+          totalRecords: responseData.results.reduce((acc, r) => acc + r.records.length, 0),
+          processedFiles: responseData.results.map(r => r.filename)
+        },
+        breakdowns: {
+          byTrack: [],
+          byArtist: [],
+          byPeriod: []
+        }
+      };
 
-      if (!responseData || typeof responseData !== 'object') {
-        console.error('Invalid response format:', responseData);
-        throw new Error('Invalid response format from server');
-      }
+      // Process each file's records
+      responseData.results.forEach(fileResult => {
+        fileResult.records.forEach(record => {
+          // Add to track breakdown
+          const trackEntry = transformedResults.breakdowns.byTrack.find(t => t.track === record[selectedTemplate.track_column]);
+          if (!trackEntry) {
+            transformedResults.breakdowns.byTrack.push({
+              track: record[selectedTemplate.track_column],
+              artist: record[selectedTemplate.artist_column] || 'Unknown',
+              revenue: parseFloat(record[selectedTemplate.revenue_column]) || 0,
+              period: record[selectedTemplate.date_column]
+            });
+          } else {
+            trackEntry.revenue += parseFloat(record[selectedTemplate.revenue_column]) || 0;
+          }
+        });
+      });
 
-      setAnalysisResults(responseData);
+      setAnalysisResults(transformedResults);
       setTabIndex(1); // Switch to results tab
     } catch (err) {
       console.error('Error analyzing files:', err);

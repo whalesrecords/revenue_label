@@ -11,13 +11,6 @@
   targetPort = 3000
   publish = "build"
 
-# API routes first
-[[redirects]]
-  from = "/.netlify/functions/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-  force = true
-
 # Static assets
 [[redirects]]
   from = "/static/*"
@@ -77,6 +70,14 @@
     "multer",
     "csv-parse",
     "csv-stringify"
+  ]
+
+[functions.templates]
+  included_files = []
+  external_node_modules = [
+    "express",
+    "serverless-http",
+    "cors"
   ]
 
 [functions.server]

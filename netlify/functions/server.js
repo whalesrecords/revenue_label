@@ -8,9 +8,16 @@ const { stringify } = require('csv-stringify');
 const app = express();
 const upload = multer();
 
-// Enable CORS
-app.use(cors());
+// Enable CORS with proper options
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+}));
+
+// Parse JSON and form data
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const templates = [
   {
@@ -53,13 +60,49 @@ const templates = [
   }
 ];
 
+// Helper function to parse CSV file
+const parseCSVFile = (file, template) => {
+  return new Promise((resolve, reject) => {
+    const records = [];
+    const parser = parse(file.buffer.toString(), {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true
+    });
+
+    parser.on('readable', () => {
+      let record;
+      while ((record = parser.read()) !== null) {
+        // Validate required columns exist
+        if (record[template.track_column] && record[template.revenue_column] && record[template.date_column]) {
+          records.push(record);
+        }
+      }
+    });
+
+    parser.on('error', (err) => {
+      reject(err);
+    });
+
+    parser.on('end', () => {
+      resolve({
+        filename: file.originalname,
+        records: records
+      });
+    });
+  });
+};
+
 // Analyze endpoint
-app.post('/', upload.array('files[]'), async (req, res) => {
+app.post('/', upload.array('files'), async (req, res) => {
   console.log('POST /analyze called');
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' });
     }
+
+    console.log('Files received:', req.files.map(f => f.originalname));
+    console.log('Template:', req.body.template);
 
     const selectedTemplate = req.body.template;
     if (!selectedTemplate) {
@@ -71,73 +114,35 @@ app.post('/', upload.array('files[]'), async (req, res) => {
       return res.status(400).json({ error: `Template "${selectedTemplate}" not found` });
     }
 
-    const trackMap = new Map();
-    const artistMap = new Map();
-    const periodMap = new Map();
-    let totalRevenue = 0;
-    let totalArtistRevenue = 0;
-    let totalRecords = 0;
+    // Process each file
+    const results = await Promise.all(
+      req.files.map(file => parseCSVFile(file, template))
+    );
 
-    for (const file of req.files) {
-      const content = file.buffer.toString('utf-8');
-      const records = await new Promise((resolve, reject) => {
-        parse(content, {
-          columns: true,
-          skip_empty_lines: true
-        }, (err, records) => {
-          if (err) reject(err);
-          else resolve(records);
-        });
+    // Validate results
+    const validResults = results.filter(result => result.records.length > 0);
+    if (validResults.length === 0) {
+      return res.status(400).json({ 
+        error: 'No valid data found in uploaded files',
+        details: results.map(r => ({
+          filename: r.filename,
+          recordCount: r.records.length
+        }))
       });
-
-      for (const record of records) {
-        const track = record[template.track_column];
-        const artist = template.artist_column ? record[template.artist_column] : 'Unknown Artist';
-        let revenue = parseFloat(record[template.revenue_column].replace(/[^\d.-]/g, ''));
-        
-        if (isNaN(revenue) || revenue < 0) continue;
-        
-        if (template.currency === 'USD') {
-          revenue *= 0.92; // Convert to EUR
-        }
-        revenue = parseFloat(revenue.toFixed(2));
-
-        const dateStr = record[template.date_column];
-        const dateObj = new Date(dateStr);
-        if (isNaN(dateObj.getTime())) continue;
-
-        trackMap.set(track, (trackMap.get(track) || 0) + revenue);
-        artistMap.set(artist, (artistMap.get(artist) || 0) + revenue);
-        periodMap.set(dateStr, (periodMap.get(dateStr) || 0) + revenue);
-        
-        totalRevenue += revenue;
-        if (artist !== 'Unknown Artist') {
-          totalArtistRevenue += revenue;
-        }
-        totalRecords++;
-      }
     }
 
-    const results = {
-      summary: {
-        totalRevenue: parseFloat(totalRevenue.toFixed(2)),
-        totalArtistRevenue: parseFloat(totalArtistRevenue.toFixed(2)),
-        uniqueTracks: Array.from(trackMap.keys()),
-        uniqueArtists: Array.from(artistMap.keys()),
-        uniquePeriods: Array.from(periodMap.keys()),
-        totalRecords
-      },
-      details: {
-        byTrack: Object.fromEntries(trackMap),
-        byArtist: Object.fromEntries(artistMap),
-        byPeriod: Object.fromEntries(periodMap)
-      }
-    };
+    res.json({
+      success: true,
+      results: validResults,
+      template: template // Include template info in response
+    });
 
-    res.json(results);
   } catch (error) {
-    console.error('Error analyzing files:', error);
-    res.status(500).json({ error: 'Failed to analyze files' });
+    console.error('Error processing files:', error);
+    res.status(500).json({ 
+      error: 'Failed to process files',
+      message: error.message
+    });
   }
 });
 
