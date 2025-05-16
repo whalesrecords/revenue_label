@@ -3,20 +3,19 @@
   publish = "client/build"
   functions = "server/functions"
 
-[functions]
-  node_bundler = "esbuild"
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-  force = true
+[dev]
+  command = "npm run start"
+  port = 8888
+  targetPort = 3000
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
   force = true
+
+[functions]
+  node_bundler = "esbuild"
 
 [build.environment]
   NODE_VERSION = "18"
