@@ -43,23 +43,107 @@ const analyzeFiles = async (event) => {
   console.log('Analyzing files from event:', event);
   
   try {
-    // Pour le moment, retournons des données de test
+    if (!event.body) {
+      throw new Error('No files provided');
+    }
+
+    // Parse the multipart form data
+    const formData = event.body;
+    const files = formData.files || [];
+    const templateName = formData.template;
+
+    if (!files.length) {
+      throw new Error('No files found in request');
+    }
+
+    // Find the selected template
+    const template = templates.find(t => t.name === templateName);
+    if (!template) {
+      throw new Error('Template not found');
+    }
+
+    let totalRevenue = 0;
+    let totalArtistRevenue = 0;
+    let totalRecords = 0;
+    const uniqueTracks = new Set();
+    const uniqueArtists = new Set();
+    const uniquePeriods = new Set();
+    const processedFiles = [];
+
+    // Process each file
+    for (const file of files) {
+      const fileContent = file.toString('utf-8');
+      const lines = fileContent.split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
+
+      // Validate required columns exist
+      const columnIndexes = {
+        track: headers.indexOf(template.track_column),
+        artist: headers.indexOf(template.artist_column),
+        revenue: headers.indexOf(template.revenue_column),
+        date: headers.indexOf(template.date_column)
+      };
+
+      for (const [field, index] of Object.entries(columnIndexes)) {
+        if (index === -1) {
+          throw new Error(`Required column ${field} not found in file ${file.name}`);
+        }
+      }
+
+      let fileRevenue = 0;
+      let fileRecords = 0;
+
+      // Process each data row
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const values = line.split(',').map(v => v.trim());
+        
+        const track = values[columnIndexes.track];
+        const artist = values[columnIndexes.artist];
+        const revenue = parseFloat(values[columnIndexes.revenue]) || 0;
+        const date = values[columnIndexes.date];
+
+        if (track) uniqueTracks.add(track);
+        if (artist) uniqueArtists.add(artist);
+        if (date) {
+          // Normalize date to YYYY-MM format
+          const dateObj = new Date(date);
+          if (!isNaN(dateObj.getTime())) {
+            const period = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+            uniquePeriods.add(period);
+          }
+        }
+
+        fileRevenue += revenue;
+        fileRecords++;
+      }
+
+      totalRevenue += fileRevenue;
+      totalRecords += fileRecords;
+      // Assuming artist revenue is 70% of total revenue
+      totalArtistRevenue += fileRevenue * 0.7;
+
+      processedFiles.push({
+        filename: file.name,
+        records: fileRecords,
+        revenue: fileRevenue,
+        status: 'success'
+      });
+    }
+
     return {
       summary: {
-        totalFiles: 1,
-        totalRecords: 100,
-        totalRevenue: 1000.00,
-        totalArtistRevenue: 700.00,
-        uniqueTracks: ["Track 1", "Track 2", "Track 3"],
-        uniqueArtists: ["Artist 1", "Artist 2"],
-        uniquePeriods: ["2024-01", "2024-02"]
+        totalFiles: files.length,
+        totalRecords,
+        totalRevenue,
+        totalArtistRevenue,
+        uniqueTracks: Array.from(uniqueTracks),
+        uniqueArtists: Array.from(uniqueArtists),
+        uniquePeriods: Array.from(uniquePeriods)
       },
-      processedFiles: [{
-        filename: "test.csv",
-        records: 100,
-        revenue: 1000.00,
-        status: "success"
-      }]
+      processedFiles
     };
   } catch (error) {
     console.error('Error analyzing files:', error);
