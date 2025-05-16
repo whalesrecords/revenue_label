@@ -32,17 +32,20 @@ const templates = [
 // Configuration CORS
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
   'Content-Type': 'application/json'
 };
 
 // Fonction pour analyser les fichiers
-const analyzeFiles = async (files) => {
+const analyzeFiles = async (event) => {
+  console.log('Analyzing files from event:', event);
+  
   // Pour le moment, retournons des données de test
   return {
     summary: {
-      totalFiles: files.length,
+      totalFiles: 1,
       totalRecords: 100,
       totalRevenue: "1000.00 EUR",
       totalArtistRevenue: "700.00 EUR",
@@ -50,12 +53,12 @@ const analyzeFiles = async (files) => {
       uniqueArtists: 20,
       uniquePeriods: 12
     },
-    processedFiles: files.map(file => ({
-      filename: file.filename,
+    processedFiles: [{
+      filename: "test.csv",
       records: 100,
       revenue: "1000.00 EUR",
       status: "success"
-    }))
+    }]
   };
 };
 
@@ -64,6 +67,7 @@ exports.handler = async (event, context) => {
   console.log('Event path:', event.path);
   console.log('HTTP method:', event.httpMethod);
   console.log('Headers:', event.headers);
+  console.log('Body:', event.body);
 
   // Gestion des requêtes OPTIONS (CORS preflight)
   if (event.httpMethod === 'OPTIONS') {
@@ -74,45 +78,41 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // Gestion des routes en fonction de la méthode HTTP
-  switch (event.httpMethod) {
-    case 'GET':
-      // Route pour obtenir les templates
-      return {
-        statusCode: 200,
-        headers: corsHeaders,
-        body: JSON.stringify(templates)
-      };
+  try {
+    // Gestion des routes en fonction de la méthode HTTP
+    switch (event.httpMethod) {
+      case 'GET':
+        // Route pour obtenir les templates
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify(templates)
+        };
 
-    case 'POST':
-      try {
-        // Pour le test, simulons une analyse réussie
-        const result = await analyzeFiles([
-          { filename: "test1.csv" },
-          { filename: "test2.csv" }
-        ]);
-
+      case 'POST':
+        // Analyse des fichiers
+        const result = await analyzeFiles(event);
         return {
           statusCode: 200,
           headers: corsHeaders,
           body: JSON.stringify(result)
         };
-      } catch (error) {
-        console.error('Error in analyze:', error);
-        return {
-          statusCode: 500,
-          headers: corsHeaders,
-          body: JSON.stringify({
-            error: error.message || 'Internal server error'
-          })
-        };
-      }
 
-    default:
-      return {
-        statusCode: 405,
-        headers: corsHeaders,
-        body: JSON.stringify({ error: 'Method not allowed' })
-      };
+      default:
+        return {
+          statusCode: 405,
+          headers: corsHeaders,
+          body: JSON.stringify({ error: 'Method not allowed' })
+        };
+    }
+  } catch (error) {
+    console.error('Error in handler:', error);
+    return {
+      statusCode: 500,
+      headers: corsHeaders,
+      body: JSON.stringify({
+        error: error.message || 'Internal server error'
+      })
+    };
   }
 }; 
