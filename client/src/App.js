@@ -122,12 +122,10 @@ function App() {
     // Load templates on mount
     const loadTemplates = async () => {
       try {
-        console.log('Fetching templates from:', `${config.API_URL}/templates`);
-        const response = await fetch(`${config.API_URL}/templates`, {
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          },
+        const endpoint = `${config.API_URL}${config.TEMPLATE_ENDPOINTS.list}`;
+        console.log('Fetching templates from:', endpoint);
+        const response = await fetch(endpoint, {
+          headers: config.DEFAULT_HEADERS,
           mode: 'cors',
           credentials: 'omit'
         });

@@ -1,6 +1,6 @@
 const getApiUrl = () => {
   if (process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
+    return process.env.REACT_APP_API_URL.replace(/\/$/, '');
   }
   return process.env.NODE_ENV === 'development' 
     ? 'http://localhost:8888/.netlify/functions'
@@ -10,7 +10,6 @@ const getApiUrl = () => {
 const config = {
   API_URL: getApiUrl(),
   TEMPLATE_ENDPOINTS: {
-    create: '/templates',
     list: '/templates',
     readHeaders: '/read-headers'
   },
@@ -26,12 +25,10 @@ if (!config.API_URL) {
 }
 
 // Log configuration in development
-if (process.env.NODE_ENV !== 'production') {
-  console.log('API Configuration:', {
-    ...config,
-    fullTemplateUrl: `${config.API_URL}${config.TEMPLATE_ENDPOINTS.list}`,
-    environment: process.env.NODE_ENV
-  });
-}
+console.log('API Configuration:', {
+  ...config,
+  fullTemplateUrl: `${config.API_URL}${config.TEMPLATE_ENDPOINTS.list}`,
+  environment: process.env.NODE_ENV || 'production'
+});
 
 export default config; 

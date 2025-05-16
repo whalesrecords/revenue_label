@@ -30,18 +30,46 @@ const templates = [
   }
 ];
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Max-Age': '86400'
+};
+
 exports.handler = async function(event, context) {
   // Log request details
   console.log('Function called:', event.path);
+  console.log('HTTP method:', event.httpMethod);
   
+  // Handle OPTIONS request for CORS
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,
+      headers: corsHeaders,
+      body: ''
+    };
+  }
+
+  // Handle GET request
+  if (event.httpMethod === 'GET') {
+    return {
+      statusCode: 200,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(templates)
+    };
+  }
+
+  // Handle unsupported methods
   return {
-    statusCode: 200,
+    statusCode: 405,
     headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
+      ...corsHeaders,
+      'Content-Type': 'application/json'
     },
-    body: JSON.stringify(templates)
+    body: JSON.stringify({ error: 'Method not allowed' })
   };
 }; 
