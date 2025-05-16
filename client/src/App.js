@@ -287,11 +287,9 @@ function App() {
 
     try {
       const formData = new FormData();
-      
       files.forEach((file) => {
         formData.append('files[]', file);
       });
-      
       formData.append('template', selectedTemplate);
 
       const response = await fetch(`${config.API_URL}/analyze`, {
@@ -301,14 +299,15 @@ function App() {
         credentials: 'omit'
       });
 
-      const responseData = await response.json().catch(() => null);
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (e) {
+        throw new Error('Failed to parse server response');
+      }
 
       if (!response.ok) {
-        throw new Error(
-          responseData?.message || 
-          responseData?.error || 
-          `Server error: ${response.status}`
-        );
+        throw new Error(responseData?.error || `Server error: ${response.status}`);
       }
 
       if (!responseData || typeof responseData !== 'object') {

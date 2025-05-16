@@ -273,10 +273,8 @@ const sendResponse = (statusCode, body) => {
 };
 
 const sendError = (statusCode, error) => {
-  console.error('Error:', error);
-  return sendResponse(statusCode, {
-    error: error.message || 'Unknown error'
-  });
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  return sendResponse(statusCode, { error: errorMessage });
 };
 
 exports.handler = async (event) => {
@@ -300,20 +298,25 @@ exports.handler = async (event) => {
         }
         
         if (!event.body) {
-          return sendError(400, new Error('No request body provided'));
+          return sendError(400, 'No request body provided');
         }
 
         if (!event.headers['content-type']?.includes('multipart/form-data')) {
-          return sendError(400, new Error('Invalid content type'));
+          return sendError(400, 'Invalid content type');
         }
 
-        const result = await analyzeFiles(event);
-        return sendResponse(200, result);
+        try {
+          const result = await analyzeFiles(event);
+          return sendResponse(200, result);
+        } catch (error) {
+          return sendError(400, error);
+        }
 
       default:
-        return sendError(405, new Error('Method not allowed'));
+        return sendError(405, 'Method not allowed');
     }
   } catch (error) {
-    return sendError(500, error);
+    console.error('Unhandled error:', error);
+    return sendError(500, 'Internal server error');
   }
 }; 
