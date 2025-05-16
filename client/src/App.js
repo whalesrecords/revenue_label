@@ -126,8 +126,8 @@ function App() {
     // Load templates on mount
     const loadTemplates = async () => {
       try {
-        const endpoint = `${config.API_URL}`;
-        console.log('Fetching templates from:', endpoint);
+        const endpoint = `${config.API_URL}${config.TEMPLATE_ENDPOINTS.get}`;
+        console.info('Fetching templates from:', endpoint);
         const response = await fetch(endpoint, {
           method: 'GET',
           headers: config.DEFAULT_HEADERS,
@@ -148,7 +148,7 @@ function App() {
         }
 
         const data = await response.json();
-        console.log('Received templates:', data);
+        console.info('Received templates:', data);
         
         if (!Array.isArray(data)) {
           throw new Error('Invalid templates data format received');
@@ -247,11 +247,11 @@ function App() {
       formData.append('template', selectedTemplate);
       
       files.forEach(file => {
-        console.log('Adding file:', file.name, file.size);
+        console.info('Adding file:', file.name, file.size);
         formData.append('files', file);
       });
 
-      console.log('Sending request with template:', selectedTemplate);
+      console.info('Sending request with template:', selectedTemplate);
       const response = await fetch(config.API_URL, {
         method: 'POST',
         body: formData,
@@ -262,12 +262,12 @@ function App() {
         credentials: 'omit'
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      console.info('Response status:', response.status);
+      console.info('Response headers:', Object.fromEntries(response.headers.entries()));
       
       let result;
       const text = await response.text();
-      console.log('Raw response:', text);
+      console.debug('Raw response:', text);
       
       try {
         result = JSON.parse(text);
@@ -276,7 +276,7 @@ function App() {
         throw new Error('Server returned invalid JSON response');
       }
       
-      console.log('Parsed result:', result);
+      console.info('Parsed result:', result);
 
       if (!response.ok || result.error) {
         throw new Error(result.error || `Server error: ${response.status}`);
