@@ -1,8 +1,10 @@
 const getApiUrl = () => {
-  if (process.env.NODE_ENV === 'development') {
-    return process.env.REACT_APP_API_URL || 'http://localhost:8888/.netlify/functions/server';
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
   }
-  return '/.netlify/functions/server';
+  return process.env.NODE_ENV === 'development' 
+    ? 'http://localhost:8888/api'
+    : '/api';
 };
 
 const config = {
@@ -14,8 +16,7 @@ const config = {
   },
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'Cache-Control': 'no-cache'
+    'Accept': 'application/json'
   }
 };
 
@@ -29,8 +30,7 @@ if (process.env.NODE_ENV !== 'production') {
   console.log('API Configuration:', {
     ...config,
     fullTemplateUrl: `${config.API_URL}${config.TEMPLATE_ENDPOINTS.list}`,
-    environment: process.env.NODE_ENV,
-    apiUrl: process.env.REACT_APP_API_URL
+    environment: process.env.NODE_ENV
   });
 }
 
