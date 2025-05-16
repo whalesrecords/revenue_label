@@ -18,7 +18,8 @@ import {
   CircularProgress,
   Tabs,
   Tab,
-  CssBaseline
+  CssBaseline,
+  Grid
 } from '@mui/material';
 import { useDropzone } from 'react-dropzone';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -287,8 +288,7 @@ function App() {
     try {
       const formData = new FormData();
       
-      // Add all files with the correct field name
-      files.forEach((file, index) => {
+      files.forEach((file) => {
         formData.append('files[]', file);
       });
       
@@ -301,26 +301,21 @@ function App() {
         credentials: 'omit'
       });
 
+      const responseData = await response.json().catch(() => null);
+
       if (!response.ok) {
-        let errorMessage = 'Failed to analyze files';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorData.error || `Server error: ${response.status}`;
-        } catch (e) {
-          console.error('Error parsing error response:', e);
-          errorMessage = await response.text();
-        }
-        throw new Error(errorMessage);
+        throw new Error(
+          responseData?.message || 
+          responseData?.error || 
+          `Server error: ${response.status}`
+        );
       }
 
-      const result = await response.json();
-      console.log('Analysis result:', result);
-
-      if (!result || typeof result !== 'object') {
+      if (!responseData || typeof responseData !== 'object') {
         throw new Error('Invalid response format from server');
       }
 
-      setAnalysisResults(result);
+      setAnalysisResults(responseData);
       setTabIndex(1); // Switch to results tab
     } catch (err) {
       console.error('Error analyzing files:', err);
