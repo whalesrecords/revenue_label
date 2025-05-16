@@ -8,10 +8,17 @@
   directory = "server/functions"
   node_bundler = "esbuild"
   included_files = ["server/functions/package.json"]
-  external_node_modules = ["express", "serverless-http", "multer", "cors", "csv-parse", "csv-stringify"]
-  timeout = "30s"
-  [functions.server]
-    maxDuration = 30
+  external_node_modules = [
+    "express",
+    "serverless-http",
+    "multer",
+    "cors",
+    "csv-parse",
+    "csv-stringify"
+  ]
+
+[functions.server]
+  maxDuration = 30
 
 [[headers]]
   for = "/*"
@@ -20,6 +27,7 @@
     Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
     Access-Control-Allow-Headers = "Origin, X-Requested-With, Content-Type, Accept"
     Access-Control-Max-Age = "86400"
+    Cache-Control = "no-cache"
 
 [[redirects]]
   from = "/.netlify/functions/server/*"
