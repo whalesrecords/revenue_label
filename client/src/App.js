@@ -23,10 +23,12 @@ import {
 import { useDropzone } from 'react-dropzone';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import EditIcon from '@mui/icons-material/Edit';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import ResultsTable from './components/ResultsTable';
 import ChartView from './components/ChartView';
 import TemplateDialog from './components/TemplateDialog';
+import EditTemplateDialog from './components/EditTemplateDialog';
 import config from './config';
 
 const theme = createTheme({
@@ -117,6 +119,8 @@ function App() {
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [processingStatus, setProcessingStatus] = useState({ current: 0, total: 0 });
+  const [editTemplateDialogOpen, setEditTemplateDialogOpen] = useState(false);
+  const [selectedTemplateForEdit, setSelectedTemplateForEdit] = useState(null);
 
   useEffect(() => {
     // Load templates on mount
@@ -353,6 +357,32 @@ function App() {
     }
   };
 
+  const handleEditTemplate = (template) => {
+    setSelectedTemplateForEdit(template);
+    setEditTemplateDialogOpen(true);
+  };
+
+  const handleSaveEditedTemplate = async (editedTemplate) => {
+    try {
+      const response = await fetch(`${config.API_URL}/template`, {
+        method: 'PUT',
+        headers: config.DEFAULT_HEADERS,
+        body: JSON.stringify(editedTemplate)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update template');
+      }
+
+      const updatedTemplates = await response.json();
+      setTemplates(updatedTemplates);
+      setError(null);
+    } catch (err) {
+      console.error('Error updating template:', err);
+      setError(`Failed to update template: ${err.message}`);
+    }
+  };
+
   // Ajouter l'indicateur de progression
   const progressMessage = processingStatus.total > 0 
     ? `Traitement du lot ${processingStatus.current}/${processingStatus.total}` 
@@ -442,14 +472,28 @@ function App() {
                       <em>None</em>
                     </MenuItem>
                     {Array.isArray(templates) ? templates.map(template => (
-                      <MenuItem key={template.name} value={template.name}>
+                      <MenuItem 
+                        key={template.name} 
+                        value={template.name}
+                        sx={{ 
+                          display: 'flex', 
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                      >
                         {template.name}
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditTemplate(template);
+                          }}
+                          sx={{ ml: 2 }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
                       </MenuItem>
-                    )) : Object.keys(templates).map(name => (
-                      <MenuItem key={name} value={name}>
-                        {name}
-                      </MenuItem>
-                    ))}
+                    )) : null}
                   </Select>
                 </FormControl>
 
@@ -584,6 +628,13 @@ function App() {
           open={templateDialogOpen}
           onClose={() => setTemplateDialogOpen(false)}
           onSave={handleSaveTemplate}
+        />
+
+        <EditTemplateDialog
+          open={editTemplateDialogOpen}
+          onClose={() => setEditTemplateDialogOpen(false)}
+          template={selectedTemplateForEdit}
+          onSave={handleSaveEditedTemplate}
         />
       </Container>
     </ThemeProvider>

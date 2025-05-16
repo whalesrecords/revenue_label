@@ -33,7 +33,7 @@ const templates = [
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
   'Access-Control-Max-Age': '86400',
   'Content-Type': 'application/json'
 };
@@ -42,24 +42,48 @@ const corsHeaders = {
 const analyzeFiles = async (event) => {
   console.log('Analyzing files from event:', event);
   
-  // Données de test avec le bon format
-  return {
-    summary: {
-      totalFiles: 1,
-      totalRecords: 100,
-      totalRevenue: 1000.00,
-      totalArtistRevenue: 700.00,
-      uniqueTracks: ["Track 1", "Track 2", "Track 3"],
-      uniqueArtists: ["Artist 1", "Artist 2"],
-      uniquePeriods: ["2024-01", "2024-02"]
-    },
-    processedFiles: [{
-      filename: "test.csv",
-      records: 100,
-      revenue: 1000.00,
-      status: "success"
-    }]
-  };
+  try {
+    // Pour le moment, retournons des données de test
+    return {
+      summary: {
+        totalFiles: 1,
+        totalRecords: 100,
+        totalRevenue: 1000.00,
+        totalArtistRevenue: 700.00,
+        uniqueTracks: ["Track 1", "Track 2", "Track 3"],
+        uniqueArtists: ["Artist 1", "Artist 2"],
+        uniquePeriods: ["2024-01", "2024-02"]
+      },
+      processedFiles: [{
+        filename: "test.csv",
+        records: 100,
+        revenue: 1000.00,
+        status: "success"
+      }]
+    };
+  } catch (error) {
+    console.error('Error analyzing files:', error);
+    throw new Error('Failed to analyze files: ' + error.message);
+  }
+};
+
+// Fonction pour mettre à jour un template
+const updateTemplate = async (event) => {
+  try {
+    const updatedTemplate = JSON.parse(event.body);
+    const index = templates.findIndex(t => t.name === updatedTemplate.name);
+    
+    if (index === -1) {
+      templates.push(updatedTemplate);
+    } else {
+      templates[index] = updatedTemplate;
+    }
+    
+    return templates;
+  } catch (error) {
+    console.error('Error updating template:', error);
+    throw new Error('Failed to update template: ' + error.message);
+  }
 };
 
 exports.handler = async (event, context) => {
@@ -90,12 +114,31 @@ exports.handler = async (event, context) => {
         };
 
       case 'POST':
-        // Analyse des fichiers
+        // Si le chemin contient "template", c'est une mise à jour de template
+        if (event.path.includes('template')) {
+          const updatedTemplates = await updateTemplate(event);
+          return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify(updatedTemplates)
+          };
+        }
+        
+        // Sinon, c'est une analyse de fichiers
         const result = await analyzeFiles(event);
         return {
           statusCode: 200,
           headers: corsHeaders,
           body: JSON.stringify(result)
+        };
+
+      case 'PUT':
+        // Mise à jour d'un template
+        const updatedTemplates = await updateTemplate(event);
+        return {
+          statusCode: 200,
+          headers: corsHeaders,
+          body: JSON.stringify(updatedTemplates)
         };
 
       default:
