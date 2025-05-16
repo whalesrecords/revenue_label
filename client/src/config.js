@@ -13,6 +13,7 @@ const config = {
     list: '/server/templates',
     readHeaders: '/server/read-headers'
   },
+  ANALYZE_ENDPOINT: '/server/analyze',
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
@@ -28,6 +29,7 @@ if (!config.API_URL) {
 console.log('API Configuration:', {
   ...config,
   fullTemplateUrl: `${config.API_URL}${config.TEMPLATE_ENDPOINTS.list}`,
+  fullAnalyzeUrl: `${config.API_URL}${config.ANALYZE_ENDPOINT}`,
   environment: process.env.NODE_ENV || 'production'
 });
 

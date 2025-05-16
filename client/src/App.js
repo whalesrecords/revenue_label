@@ -241,11 +241,11 @@ function App() {
         });
 
         try {
-          const response = await fetch(`${config.API_URL}/analyze`, {
+          const response = await fetch(`${config.API_URL}${config.ANALYZE_ENDPOINT}`, {
             method: 'POST',
             body: formData,
             headers: {
-              'Accept': 'application/json',
+              'Accept': 'application/json'
             },
             credentials: 'omit'
           });
